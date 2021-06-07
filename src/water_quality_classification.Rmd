@@ -1,0 +1,2988 @@
+---
+title: 'Tipología y ciclo de vida de los datos'
+author: "Iván Maseda Zurdo y Lucas Rey Pitaluga"
+date: "Junio 2021"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    includes:
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+******
+# Descripción del dataset.
+******
+
+## Presentación
+
+Hemos elegido el dataset "Water Quality" de Kaggle (https://www.kaggle.com/adityakadiwal/water-potability). En él, tenemos datos de potabilidad del agua. A partir de estos datos, vamos a utilizar distintos métodos de imputación de valores vacíos o nulos, múltiples formas de tratar los valores extremos y aplicaremos varios algoritmos de clasificación.
+
+Compararemos nuestros resultados de nuestra clasificación con los obtenidos por otros usuarios de Kaggle hasta la fecha.
+
+Carga de datos:
+```{r}
+data <- read.csv("water_potability.csv", sep = ",", strip.white = TRUE, header = TRUE, na.strings = "")
+#data_plot <- read.csv("water_potability.csv", sep = ",", strip.white = TRUE, header = TRUE, na.strings = "")
+```
+```{r}
+library(skimr)
+library(Hmisc)
+
+skim(data)
+```
+
+En nuestro conjunto de datos tenemos 3276 registros con 10 variables. Para cada registro tenemos distintas medidas de calidad del agua relacionadas con su acidez, dureza o sólidos en suspensión entre otras. A partir de estas variables, obtenemos una clasificación de cada registro en cuanto a su potabilidad, donde 1 significa que es potable para el consumo humano y 0 que no.
+
+A continuación mostramos las variables de nuestro conjunto de datos.
+
+*valor de pH*:
+El PH es un parámetro importante en la evaluación del equilibrio ácido-base del agua. También es el indicador de la condición ácida o alcalina del estado del agua. La OMS ha recomendado el límite máximo permisible de pH de 6,5 a 8,5. Los rangos de investigación actuales fueron de 6,52 a 6,83, que se encuentran en el rango de los estándares de la OMS.
+
+*Dureza*:
+La dureza es causada principalmente por sales de calcio y magnesio. Estas sales se disuelven a partir de depósitos geológicos a través de los cuales viaja el agua. El tiempo que el agua está en contacto con el material que produce dureza ayuda a determinar cuánta dureza hay en el agua cruda. La dureza se definió originalmente como la capacidad del agua para precipitar el jabón causado por el calcio y el magnesio.
+
+*Sólidos (sólidos disueltos totales - TDS)*:
+El agua tiene la capacidad de disolver una amplia gama de minerales o sales inorgánicos y algunos orgánicos, como potasio, calcio, sodio, bicarbonatos, cloruros, magnesio, sulfatos, etc. Estos minerales producen un sabor no deseado y un color diluido en apariencia de agua. Este es un parámetro importante para el uso del agua. El agua con alto valor de TDS indica que el agua está altamente mineralizada. El límite deseable de TDS es de 500 mg / L y el límite máximo es de 1000 mg / L que se prescribe para beber.
+
+*Cloraminas*:
+El cloro y la cloramina son los principales desinfectantes que se utilizan en los sistemas públicos de agua. Las cloraminas se forman con mayor frecuencia cuando se agrega amoníaco al cloro para tratar el agua potable. Los niveles de cloro de hasta 4 miligramos por litro (mg / L o 4 partes por millón (ppm)) se consideran seguros en el agua potable.
+
+*Sulfato*:
+Los sulfatos son sustancias naturales que se encuentran en minerales, suelo y rocas. Están presentes en el aire ambiente, el agua subterránea, las plantas y los alimentos. El principal uso comercial del sulfato es en la industria química. La concentración de sulfato en el agua de mar es de aproximadamente 2700 miligramos por litro (mg / L). Varía de 3 a 30 mg / L en la mayoría de los suministros de agua dulce, aunque se encuentran concentraciones mucho más altas (1000 mg / L) en algunas ubicaciones geográficas.
+
+*Conductividad*:
+El agua pura no es un buen conductor de corriente eléctrica, más bien es un buen aislante. El aumento de la concentración de iones mejora la conductividad eléctrica del agua. Generalmente, la cantidad de sólidos disueltos en el agua determina la conductividad eléctrica. La conductividad eléctrica (EC) en realidad mide el proceso iónico de una solución que le permite transmitir corriente. Según los estándares de la OMS, el valor de CE no debe exceder los 400 μS / cm.
+
+*Carbón orgánico*:
+El carbono orgánico total (TOC) en las fuentes de agua proviene de la materia orgánica natural en descomposición (NOM), así como de fuentes sintéticas. TOC es una medida de la cantidad total de carbono en compuestos orgánicos en agua pura. Según la EPA de EE. UU. <2 mg / L como TOC en agua tratada / potable y <4 mg / L en el agua de origen que se utiliza para el tratamiento.
+
+*Trihalometanos*:
+Los THM son sustancias químicas que se pueden encontrar en el agua tratada con cloro. La concentración de THM en el agua potable varía según el nivel de material orgánico en el agua, la cantidad de cloro necesaria para tratar el agua y la temperatura del agua que se está tratando. Los niveles de THM de hasta 80 ppm se consideran seguros en el agua potable.
+
+*Turbiedad*:
+La turbiedad del agua depende de la cantidad de materia sólida presente en estado suspendido. Es una medida de las propiedades emisoras de luz del agua y la prueba se utiliza para indicar la calidad de la descarga de desechos con respecto a la materia coloidal. El valor medio de turbidez obtenido para Wondo Genet Campus (0,98 NTU) es inferior al valor recomendado por la OMS de 5,00 NTU.
+
+*Potabilidad*:
+Indica si el agua es segura para el consumo humano, donde 1 significa potable y 0 significa no potable.
+
+## Distribución
+
+Pasamos a hacer una descripción de nuestras variables en función de la variable objetivo, "Potability":
+
+```{r}
+describe(as.factor(data$Potability))
+```
+
+```{r   fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+library(GGally)
+ggpairs(data, columns = 1:9, ggplot2::aes(colour=as.factor(Potability)), progress = FALSE) 
+```
+
+```{r}
+library(reshape2)
+data_m <- melt(data, id.vars = "Potability")
+```
+```{r fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+ggplot(data = data_m, aes(x=variable, y=value, fill=as.factor(Potability))) + 
+             geom_boxplot() + facet_wrap(~variable, scales="free")
+```
+```{r  fig.height=12, fig.width=12}
+boxplot(scale(data[,1:9]))
+```
+
+## Correlación
+
+Mostramos las correlaciones existentes entre las distintas variables de nuestro conjunto de datos.
+
+```{r}
+cor_mat <- cor(data[1:9], use="complete.obs")
+cor_mat
+```
+
+```{r}
+library(ggcorrplot)
+ggcorrplot(cor_mat, hc.order = TRUE, type = "lower", lab = TRUE, insig = "blank")
+```
+
+## Proporción y densidad
+
+A continuación mostramos la proporción para cada uno de los posibles valores de "Potability", las densidades e histogramas de distribución.
+
+```{r}
+ggplot(data, aes(y = Potability, fill = factor(Potability))) + geom_bar() + labs(title = "Proporción de registros por clase") + geom_text(stat = "count", aes(label = scales::percent(..count../sum(..count..))), nudge_x = 40)
+```
+
+```{r}
+library(plyr)
+
+for (i in names(data)){
+  plt <- ggplot(data, aes_string(x=i)) + 
+         geom_histogram(aes(y=..density..), colour="black", fill="white")+
+         geom_density(alpha=.2, fill="#FF6666") + facet_wrap(~Potability, scales="free")
+  print(plt)
+}
+```
+
+******
+# Integración y selección de los datos de interés a analizar.
+******
+
+Tras el análisis preliminar que hemos realizado, hemos podido observar que nuestros datos están correctamente integrados, no tenemos diferencias de medidas o rangos, por lo que no hemos tenido que realizar ninguna manipulación de los datos en este sentido.
+
+En cuanto a la selección de los datos, guardaremos todos los registros y todas las variables que tenemos, puesto que cada una de ellas es importante a la hora de analizar la potabilidad del agua.
+
+Haremos un tratamiento de los elementos vacíos y de los valores extremos en el siguiente apartado.
+
+******
+# Limpieza de los datos.
+******
+
+## ¿Los datos contienen ceros o elementos vacíos? ¿Cómo gestionarías cada uno de estos casos?
+
+Tratamiento de valores nulos, el número máximo de elementos vacíos por registro es:
+
+```{r}
+max(rowSums(is.na(data)))
+```
+El número de filas que presentan al menos un valor nulo:
+
+```{r}
+sum(!complete.cases(data))
+```
+Añadiremos una columna, que llamaremos "na_count", con el número de valores nulos por registro y presentaremos un top 20:
+
+```{r}
+library(dplyr)
+data_na_count <- data
+data_na_count$na_count <- apply(data, 1, function(x) sum(is.na(x)))
+head(data_na_count %>% slice_max(na_count, n = 20), 20)
+```
+Mediante la librería "VIM" podemos visualizar algunos gráficos interesantes sobre los valores nulos. Hemos visto que los atributos "ph", "Sulfate" y "Trihalomethanes" son los que presentan valores nulos, analizaremos la co-ocurrencia de estos combinando los 3 atributos:
+
+```{r}
+library(VIM)
+marginplot(data[c(1,5)])
+```
+```{r}
+marginplot(data[c(1,8)])
+```
+```{r}
+marginplot(data[c(5,8)])
+```
+Vemos que hay una co-ocurrencia importante entre ph y Sulfate, debemos tenerlo presente. Una buena opción quizás sería descartar esos registros, como última opción siempre tenemos la posibilidad, pero tratemos de lidiar con ello y ver los resultados que nos ofrece. Veamos otras opciones de visaulización, mediante la función md.pattern() podemos ver la co-ocurrencia de valores nulos, el número de registros por patrón y obtener una imagen intuitiva de estos hechos:
+
+```{r fig.width=14}
+library(mice)
+md.pattern(data)
+```
+Esta es otra opción similar pero expresada en porcentajes, en función de las variables y sus valores nulos:
+
+```{r fig.width=10}
+mice_plot <- aggr(data, col=c('navyblue','yellow'),
+             numbers=TRUE, sortVars=TRUE,
+             labels=names(data), cex.axis=.7,
+             gap=3, ylab=c("Missing data","Pattern"))
+```
+Antes de abordar el tratamiento de estos valores, es conveniente observar la distribución de nuestros datos, en el apartado de presentación hemos podido ver gráficamente la distribución de todos los atributos, incluso en función de su clase. Ahora estudiaremos la normalidad multivariante, esto nos ayudará en las decisiones futuras, puesto que no podemos tratar los datos de igual manera si la distribución no es normal, por ejemplo.
+
+Para esto emplearemos las librerias "QuantPsyc"(para la simetría), "energy" y "MVN":
+
+```{r}
+library(QuantPsyc)
+mult.norm(data)$mult.test
+```
+En el caso de "energy" debemos estudiar los registros completos, sin valores nulos. Nos servirá de referencia para el total de los datos:
+
+```{r}
+library(energy)
+
+complete_data <- data[complete.cases(data),]
+mvnorm.etest(complete_data, R=100)
+```
+La librería "MVN" nos ofrece mucha información del conjunto y atributo a atributo:
+
+```{r}
+library(MVN)
+result <- mvn(complete_data, multivariatePlot = "qq", showOutliers = TRUE)
+```
+```{r}
+result$multivariateNormality
+```
+
+```{r}
+result$univariateNormality
+```
+```{r}
+result$Descriptives
+```
+
+En ambos casos rechazamos la hipótesis nula del test p<0.05, nuestras variables no siguen una distribución normal. También es importante observar el coeficiente de simetría, puede ser que la distribución esté condicionada por la simetría de los datos y sea conveniente aplicar una transformación logarítmica, por ejemplo, para tratar de corregirlo, pero vemos que no es el caso, también podemos ver que la diferencia entre la mediana y la media no es significativa en ninguno de los atributos.
+
+En este punto sería conveniente tratar de eliminar outliers, en ocasiones, la falta de normalidad puede atribuirse a estos valores que se desvían mucho del resto y afectan a la distribución de los datos, y hemos visto en el apartado de presentacón, en los boxplots concretamente, la presencia de muchos valores de este tipo.
+
+Para esto crearemos dos funciones, una para realizar el conocido como test de Tukey, y otra en función de la desviación típica, las llamaremos "outliers_Tukey" y "outliers_sd", hemos visto en la función "MVN" que parecen no afectar a la distribución, pero dejaremos las funciones creadas, ya que tras la imputación de valores, sería conveniente estudiarlo con el total de los datos:
+
+```{r}
+outliers_Tukey <- function(x) {
+
+  Q1 <- quantile(x, probs=.25)
+  Q3 <- quantile(x, probs=.75)
+  iqr = Q3-Q1
+
+ upper_limit = Q3 + (iqr*1.5)
+ lower_limit = Q1 - (iqr*1.5)
+
+ x > upper_limit | x < lower_limit
+}
+
+remove_outliers_Tukey <- function(df, cols = names(df)) {
+  for (col in cols) {
+    df <- df[!outliers_Tukey(df[[col]]),]
+  }
+  df
+}
+
+outliers_sd <- function(x) {
+  
+    upper_limit = mean(x) + 3*sd(x)
+    lower_limit = mean(x) - 3*sd(x)
+    
+    x > upper_limit | x < lower_limit
+}
+
+remove_outliers_sd <- function(df, cols = names(df)) {
+  for (col in cols) {
+    df <- df[!outliers_sd(df[[col]]),]
+  }
+  df
+}
+```
+
+En el enunciado de la práctica vemos que se pide el estudio de outliers después de gestionar los valores nulos, pero en nuestro caso nos ayudará a decidir los metodos de imputación que aplicaremos.
+
+Para evitar problemas con valores nulos de momento tomaremos de referencia todos los registros completos.
+
+```{r}
+data_Tukey_outliers <- remove_outliers_Tukey(complete_data)
+data_sd_outliers <- remove_outliers_sd(complete_data)
+```
+
+Aplicaremos la función "mvn"(mostrando los datos de interés únicamente) para ambos conjuntos, la función "summary" y un boxplot para apreciar gráficamente las diferencias con el conjunto original:
+
+```{r}
+result <- mvn(data_Tukey_outliers, multivariatePlot = "qq", showOutliers = TRUE)
+```
+
+Vemos una clara diferencia en la gráfica, pero seguimos rechazando la hipótesis nula. 
+
+```{r}
+result$multivariateNormality
+```
+
+```{r}
+summary(data_Tukey_outliers)
+```
+
+```{r}
+boxplot(scale(data_Tukey_outliers[,1:9]))
+```
+
+Veamos con los outliers eliminados por la distancia en desviaciones típicas de la media:
+
+```{r}
+result <- mvn(data_sd_outliers, multivariatePlot = "qq", showOutliers = TRUE)
+```
+
+```{r}
+result$multivariateNormality
+```
+
+```{r}
+summary(data_sd_outliers)
+```
+
+```{r}
+boxplot(scale(data_sd_outliers[,1:9]))
+```
+
+Vemos una clara diferencia entre ambos métodos, debido a la cantidad de datos que eliminan, como podemos ver:
+
+```{r}
+cat("data_sd_outliers: ",nrow(data_sd_outliers), "\n")
+cat("data_Tukey_outliers: ",nrow(data_Tukey_outliers))
+```
+Por tanto, trabajaremos con la hipótesis de no normalidad de nuestros datos.
+
+### Preparación de los conjuntos de datos para imputación de valores.
+
+Para la imputación de los datos, y teniendo en cuenta el estudio anteriror de la distribución, no podemos emplear métodos que asuman la normalidad de nuestros datos, como puede ser el caso de "AMELIA". 
+
+Para tratar de evaluar la precisión de la imputación haremos un estudio previo de los diferentes métodos y su error cuadrático medio respecto a valores conocidos. Para eso, vamos a imputar NAs en complete_data para aplicar distintos modelos de imputación de valores y poder evaluarlos y compararlos entre sí.
+
+Pero antes de nada hemos considerado comprobar que la distribución de los datos en los que existen valores nulos es similar al resto de registros, para esto introduciremos un nuevo atributo binario en nuestro conjunto de datos (concretamente crearemos uno nuevo, "data_test") y compararemos la distribución atributo a atributo:
+
+```{r}
+library(plyr)
+library(ggplot2)
+
+data_test <- data
+data_test$na_count <- apply(data, 1, function(x) sum(is.na(x)))
+data_test$na_count[data_test$na_count>0] <- 1
+
+for (i in names(data)){
+  plt <- ggplot(data_test, aes_string(x=i)) + 
+         geom_histogram(aes(y=..density..), colour="black", fill="white")+
+         geom_density(alpha=.2, fill="#FF6666") + facet_wrap(~na_count, scales="free")
+  print(plt)
+}
+```
+
+Visualmente parecen similares, pero compararemos las funciones summary() para estar un poco más seguros, nos interesa principalmente la similitud entre los atributos que no presentan valores nulos, ya que muchas de las imputaciones se harán en función de estos.
+
+```{r}
+summary(data_test[data_test$na_count==0,])
+summary(data_test[data_test$na_count==1,])
+```
+
+Una vez comprobado podemos continuar. Queremos imputar NAs en las siguientes columnas: ph, Sulfate y Trihalomethanes. Las demás las dejaremos tal y como están, y por supuesto queremos obtener una distribución de valores nulos lo más semejante al conjunto original, veamos si lo conseguimos, trataremos de conseguir los mismos porrcentajes:
+
+```{r}
+apply(data, 2, function(col)sum(is.na(col))/length(col))
+```
+
+```{r}
+library(missForest)
+library(tidyverse)
+
+set.seed(564165)
+complete_data <- data[complete.cases(data),]
+head(complete_data)
+
+complete_data_ph <- complete_data[,c("ph")]
+complete_data_Sulfate <- complete_data[,c("Sulfate")]
+complete_data_Triha <- complete_data[,c("Trihalomethanes")]
+
+complete_data_noNAcols <- complete_data[,c("Hardness", "Solids", "Chloramines", "Conductivity", "Organic_carbon", "Turbidity", "Potability")]
+
+complete_data_ph <- prodNA(as.data.frame(complete_data_ph), noNA = 0.14987790)
+complete_data_Sulfate <- prodNA(as.data.frame(complete_data_Sulfate), noNA = 0.23840049)
+complete_data_Triha <- prodNA(as.data.frame(complete_data_Triha), noNA = 0.04945055)
+
+complete_data_NAcols <- cbind(complete_data_ph, complete_data_Sulfate)
+complete_data_NAcols <- cbind(complete_data_NAcols, complete_data_Triha)
+
+complete_data_NAs <- cbind(complete_data_NAcols, complete_data_noNAcols)
+complete_data_NAs <- complete_data_NAs[, c(1, 4, 5, 6, 2, 7, 8, 3, 9, 10)]
+
+names(complete_data_NAs)[names(complete_data_NAs) == "complete_data_ph"] <- "ph"
+names(complete_data_NAs)[names(complete_data_NAs) == "complete_data_Sulfate"] <- "Sulfate"
+names(complete_data_NAs)[names(complete_data_NAs) == "complete_data_Triha"] <- "Trihalomethanes"
+
+head(complete_data_NAs)
+```
+
+Utilizaremos la función md.pattern, visualmente podremos comprobar si el patrón es similar al del conjunto original de datos.
+
+```{r  fig.height=12, fig.width=12}
+md.pattern(complete_data_NAs)
+```
+```{r fig.width=10}
+library(VIM)
+library(mice)
+set.seed(100)
+mice_plot <- aggr(complete_data_NAs, col=c('navyblue','yellow'),
+             numbers=TRUE, sortVars=TRUE,
+             labels=names(complete_data_NAs), cex.axis=.7,
+             gap=3, ylab=c("Missing data","Pattern"))
+```
+
+De esta forma podemos introducir NAs en la misma proporción que en el conjunto original.
+
+### Aplicamos MICE
+
+Empezaremos con la librería "MICE" para multivariate imputation. Emplearemos el método predictive mean matching, un método de imputación semiparamétrico. Sus principales ventajas son que los valores imputados coinciden con alguno de los valores observados en la misma variable y que puede preservar relaciones no lineales incluso si la parte estructural del modelo de imputación es incorrecta.
+
+Es un buen método de imputación en general. Las funciones mice.impute.norm() y mice.impute.norm.nob() no se adaptan a nuestros datos debido a la distribución. La función mice.impute.norm.predict() aplica una regresión lineal entre las variables, puede ser útil.
+
+Para fracciones de información perdida γ=(0.1, 0.3, 0.5, 0.7, 0.9) necesitamos establecer m=(20, 20, 40, 100, >100) imputaciones, respectivamente.
+
+Analizaremos la co-ocurrencoia de valores nulos, ha podido cambiar al ser aleatoria la asignación:
+
+```{r}
+library(VIM)
+marginplot(complete_data_NAs[c(1,5)])
+```
+```{r}
+marginplot(complete_data_NAs[c(1,8)])
+```
+```{r}
+marginplot(complete_data_NAs[c(5,8)])
+```
+Vemos que es ligeramente distinta, pero al asignar los valores nulos de forma aleatoria es dificil de conseguir, e imputar los valores nulos manualmente sería un poco tedioso.
+
+Lanzamos el método MICE de imputación de valores. Le asignaremos un valor de 100 iteraciones y 5 conjuntos de salida, se recomiendan valores de m mucho más elevados, sobretodo para el porcentaje de datos nulos presente, pero lo haremos así para reducir los tiempos de ejecución y presentar un trabajo didáctico, no tan orientado al rendimiento.
+
+
+```{r echo=TRUE, results='hide', include=FALSE}
+library(mice)
+set.seed(100)
+complete_data_NAs_MICE <- mice(complete_data_NAs,m=5, maxit = 100, method="pmm",seed=245435, print=FALSE)
+```
+
+Mediante la función plot() podemos visualizar como varia la asignación por iteración:
+
+```{r fig.width=20, fig.height=12}
+plot(complete_data_NAs_MICE)
+```
+
+No son las fluctuaciones ideales, veamos los gráficos de densidad:
+
+```{r}
+densityplot(complete_data_NAs_MICE)
+```
+
+Y la diferencia entre originales y asignados:
+
+```{r  fig.height=12, fig.width=12}
+stripplot(complete_data_NAs_MICE, pch = 20, cex = 1.2)
+```
+
+También veremos la comparativa en el resultado de la función summary() entre los datos originales y todos los conjuntos generados(5):
+
+```{r}
+summary(data)
+summary(mice::complete(complete_data_NAs_MICE, "long"))
+```
+
+Una vez comprobada cierta similitud podemos pasar a tratar de mejorar un poco la imputación, para esto usaremos las funciones with() y pool() para hacer una regresión sobre una de las variables calculadas, en este caso la que más valores nulos tiene con diferencia, Sulfate, en la primera iteración incluiremos Trihalomethanes, ya que presenta un porcentaje pequeño de valores nulos, pero no ph: 
+
+```{r}
+MICE_test <- mice::complete(complete_data_NAs_MICE, "long")
+fit <- with(complete_data_NAs_MICE, lm(Sulfate~ Hardness+Solids+Chloramines+Conductivity+Organic_carbon+Turbidity+Trihalomethanes+Potability))
+summary(mice::pool(fit))
+```
+
+Tratamos de buscar los atributos con menor p-value, eliminamos los 3 con mayor valor e iteramos un par de veces:
+
+```{r}
+imp_2 <- mice(complete_data_NAs[,-c(4,6,9,10)],m=5, maxit = 100, method="pmm",seed=245435, print=FALSE)
+fit_2 <- with(imp_2, lm(Sulfate~ Hardness+Solids+Organic_carbon+Trihalomethanes))
+summary(mice::pool(fit_2))
+```
+```{r}
+imp_3 <- mice(complete_data_NAs[,-c(4,6,8,9,10)],m=5, maxit = 100, method="pmm",seed=245435, print=FALSE)
+fit_3 <- with(imp_3, lm(Sulfate~ Hardness+Solids+Organic_carbon))
+summary(mice::pool(fit_3))
+```
+
+Vemos los valores de lambda y fmi que representan "Fraction of Missing Information" como vemos en la documentación.
+
+```{r}
+mice::pool(fit)
+mice::pool(fit_2)
+mice::pool(fit_3)
+```
+Y como tenemos los valores reales podemos calcular el error medio, de cada uno de los 5 modelos propuestos y del conjunto:
+
+```{r}
+library(Metrics)
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(complete_data_NAs_MICE, i)[is.na(complete_data_NAs$Sulfate),]$Sulfate
+  actual <- complete_data[is.na(complete_data_NAs$Sulfate),]$Sulfate
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5)
+```
+```{r}
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(imp_2, i)[is.na(complete_data_NAs$Sulfate),]$Sulfate
+  actual <- complete_data[is.na(complete_data_NAs$Sulfate),]$Sulfate
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5)
+```
+```{r}
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(imp_3, i)[is.na(complete_data_NAs$Sulfate),]$Sulfate
+  actual <- complete_data[is.na(complete_data_NAs$Sulfate),]$Sulfate
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5)
+```
+Podemos comprobar para el atributo ph también:
+```{r}
+library(Metrics)
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(complete_data_NAs_MICE, i)[is.na(complete_data_NAs$ph),]$ph
+  actual <- complete_data[is.na(complete_data_NAs$ph),]$ph
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5)
+```
+```{r}
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(imp_2, i)[is.na(complete_data_NAs$ph),]$ph
+  actual <- complete_data[is.na(complete_data_NAs$ph),]$ph
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5)
+```
+```{r}
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(imp_3, i)[is.na(complete_data_NAs$ph),]$ph
+  actual <- complete_data[is.na(complete_data_NAs$ph),]$ph
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5)
+```
+Vemos que las mejoras no son muy significativas dependiendo de los atributos que utilicemos para imputar los valores, en un estudio en profundidad podríamos hacerlo uno a uno, es decir, introduciendo los atributos a predecir uno a uno hasta conseguir un valor aceptable y luego añadir ese valor predicho en la predicción del siguiente atributo para ver si mejora, pero es un proceso iterativo que puede llevar bastante tiempo y para la práctica hemos decidido estudiar otros tipos de imputaciones también.
+
+De momento nos quedamos con los errores medios para compararlos con otros métodos. Necesitamos el de Trihalometanes:
+
+```{r}
+library(Metrics)
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(complete_data_NAs_MICE, i)[is.na(complete_data_NAs$Trihalomethanes),]$Trihalomethanes
+  actual <- complete_data[is.na(complete_data_NAs$Trihalomethanes),]$Trihalomethanes
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5,"\n")
+
+a=0
+for (i in 1:5) { 
+  predicted <- mice::complete(imp_2, i)[is.na(complete_data_NAs$Trihalomethanes),]$Trihalomethanes
+  actual <- complete_data[is.na(complete_data_NAs$Trihalomethanes),]$Trihalomethanes
+  
+  cat(Metrics::rmse(actual, predicted), "\n")
+  
+  a= a + (Metrics::rmse(actual, predicted))
+}
+cat("mean RMSE: ",a/5, "\n")
+```
+Creamos una función para ir guardando los resultados de RMSE de cada modelo para cada variable.
+
+```{r}
+res <- "Resultado"
+name <- "Model"
+add_value <- function(result, new_name) {
+  res <<- c(res, result)
+  name <<- c(name, new_name)
+}
+add_value(2.183171, "result_MICE_ph")
+add_value(55.8299, "result_MICE_Sulfate")
+add_value(22.33897 , "result_MICE_Trihalomethanes")
+```
+
+MICE también permite crear nuestras propias funciones de imputación, puede ser una herramienta muy útil en algunos casos, teniendo un conocimiento previo de los datos y sabiendo como quieres imputar dichos valores, pero en este caso no hemos visto ninguna relación entre datos, ni conocemos en profundidad el tema como para definir un comportamiento.
+
+### Aplicamos missForest
+
+El siguiente método será mediante la librería missForest, Como sugiere el nombre, es una implementación del algoritmo de bosque aleatorio. Es un método de imputación no paramétrico aplicable a varios tipos de variables.
+
+Lanzamos el método missForest de imputación de valores. Destacar que estamos empleando métodos no paramétricos debido al estudio previo de distribución de nuestros datos. Un método no paramétrico no hace suposiciones explícitas sobre la forma funcional de f (cualquier función arbitraria). En su lugar, intenta estimar f de modo que pueda estar lo más cerca posible de los puntos de datos sin que parezca poco práctico.
+
+El funcionamiento, en palabras simples, crea un modelo de bosque aleatorio para cada variable. Luego, usa el modelo para predecir los valores perdidos en la variable con la ayuda de los valores observados. Produce una estimación del error de imputación OOB (fuera de bolsa). Además, proporciona un alto nivel de control sobre el proceso de imputación. Tiene opciones para devolver OOB por separado (para cada variable) en lugar de agregar toda la matriz de datos. Esto ayuda a observar más de cerca la precisión con la que el modelo ha imputado valores para cada variable. También es válido para variables categóricas, pero no es nuestro caso.
+
+```{r}
+library(missForest)
+set.seed(100)
+complete_data_NAs_MISSFOREST_1 <- missForest(complete_data_NAs, verbose=TRUE)
+complete_data_NAs_MISSFOREST <- complete_data_NAs_MISSFOREST_1$ximp
+head(complete_data_NAs_MISSFOREST)
+```
+
+Utilizando la opción verbose=TRUE podemos ver el error medio en cada iteración y la diferencia, un indicador de la mejora en cada iteración, vemos que aunque aumentemos las iteraciones no mejoraremos mucho el resultado, por defecto no siempre utiliza el mismo número de iteraciones, se basa en estos valores para el número, podemos modificar el valor ntree, que indica el número de árboles a generar, como el conjunto de datos es pequeño, pongamos un valor elevado y probemos:
+
+```{r}
+set.seed(100)
+complete_data_NAs_MISSFOREST_2 <- missForest(complete_data_NAs, verbose=TRUE, ntree=500)
+complete_data_NAs_MISSFOREST_test <- complete_data_NAs_MISSFOREST_2$ximp
+head(complete_data_NAs_MISSFOREST)
+```
+Calculamos el error cuadrático medio de las imputaciones en cada variable en ambos casos y veamos la diferencia:
+
+```{r}
+# Realizamos los mismos pasos que con el modelo de imputación MICE para comparar los vectores de cada variable.
+actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+predicted = complete_data_NAs_MISSFOREST_test[is.na(complete_data_NAs$ph), ]$ph      
+result_MISSFOREST_ph = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+predicted = complete_data_NAs_MISSFOREST_test[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_MISSFOREST_Sulfate = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+predicted = complete_data_NAs_MISSFOREST_test[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_MISSFOREST_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+result_MISSFOREST_ph
+result_MISSFOREST_Sulfate
+result_MISSFOREST_Trihalomethanes
+```
+
+```{r}
+# Realizamos los mismos pasos que con el modelo de imputación MICE para comparar los vectores de cada variable.
+actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+predicted = complete_data_NAs_MISSFOREST[is.na(complete_data_NAs$ph), ]$ph      
+result_MISSFOREST_2_ph = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+predicted = complete_data_NAs_MISSFOREST[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_MISSFOREST_2_Sulfate = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+predicted = complete_data_NAs_MISSFOREST[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_MISSFOREST_2_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+result_MISSFOREST_2_ph
+result_MISSFOREST_2_Sulfate
+result_MISSFOREST_2_Trihalomethanes
+```
+La diferencia no justifica el mayor tiempo de ejecución por tanto, optamos por la primera opción.
+Como suele ser habitual, los métodos basados en random forest ofrecen resultados muy buenos en comparación con otros.
+Guardamos los resultados de RMSE del modelo para cada variable.
+
+```{r}
+add_value(result_MISSFOREST_ph, "result_MISSFOREST_ph")
+add_value(result_MISSFOREST_Sulfate, "result_MISSFOREST_Sulfate")
+add_value(result_MISSFOREST_Trihalomethanes, "result_MISSFOREST_Trihalomethanes")
+res
+name
+```
+
+### Aplicamos Hmisc
+
+Hmisc es un paquete de usos múltiples útil para análisis de datos, gráficos de alto nivel, imputación de valores perdidos, creación avanzada de tablas, ajuste y diagnóstico de modelos (regresión lineal, regresión logística y regresión de cox), etc. También ofrece 2 potentes funciones para imputar valores perdidos, estas son impute () y aregImpute ().
+
+La función impute () simplemente imputa el valor perdido utilizando el método estadístico definido por el usuario (media, máxima, media), su valor predeterminado es la mediana. Por otro lado, aregImpute () permite la imputación de valores mediante regresión aditiva, bootstrapping y coincidencia de medias predictiva.  Luego, un modelo aditivo flexible (método de regresión no paramétrico) se ajusta a las muestras tomadas con reemplazos de los datos originales y los valores perdidos (actúa como variable dependiente) se predicen usando valores no perdidos (variable independiente). Luego, utiliza la coincidencia de medias predictiva (predeterminada) para imputar los valores perdidos. La coincidencia de medias predictiva funciona bien para continuos y categóricos (binarios y multinivel) sin la necesidad de calcular residuos y ajuste de máxima probabilidad. En el bootstrap, se utilizan diferentes remuestreos de bootstrap para cada una de las múltiples imputaciones.
+
+Hmisc asume linealidad en las variables que se predicen, puede presenmtar un problema en nuestro caso, pero veremos los resultados. Estableceremos "n.impute" en 5 para no generrar muchos subconjuntos, misma lógica que con MICE. 
+
+```{r}
+library(Hmisc)
+set.seed(100)
+
+complete_data_NAs_HMISC_areg <- aregImpute(~ Sulfate + Hardness + Solids + Chloramines + ph + Conductivity + Organic_carbon + Trihalomethanes + Turbidity + Potability, data = complete_data_NAs, n.impute = 5, type= "pmm", nk=3, burnin=10)
+print(complete_data_NAs_HMISC_areg)
+```
+
+Podemos probar con diferentes valores nk, con la opción nk=c(0,3:5) obtenemos los resultados de R² para distintos valores de nk, podemos valorar que opción usar:
+
+```{r}
+library(Hmisc)
+set.seed(100)
+
+complete_data_NAs_HMISC_areg_test <- aregImpute(~ Sulfate + Hardness + Solids + Chloramines + ph + Organic_carbon + Trihalomethanes + Turbidity + Potability, data = complete_data_NAs, n.impute = 10, type= "pmm", nk=c(0,3:5), tlinear = FALSE)
+print(complete_data_NAs_HMISC_areg_test)
+```
+
+Muestra como resultado los valores R² para los valores perdidos predichos. Cuanto mayor sean éstos, mejores son los valores predichos.
+En nuestro caso hemos obtenido valores de R² muy bajos, por lo que podemos concluir que los valores predichos con hmisc en nuestro caso son muy malos. Podemos comprobar el error con los valores reales en cada iteración:
+
+```{r}
+for (i in 1:10){
+  temp_data <- impute.transcan(complete_data_NAs_HMISC_areg_test, imputation = i, data = complete_data_NAs, list.out = TRUE,
+                           pr = FALSE, check = FALSE)
+  temp_data <- data.frame(temp_data)
+  actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+  predicted = temp_data[is.na(complete_data_NAs$ph), ]$ph      
+  result_HMISC_ph = Metrics::rmse(actual, predicted)
+
+  actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+  predicted = temp_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+  result_HMISC_Sulfate = Metrics::rmse(actual, predicted)
+
+  actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+  predicted = temp_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+  result_HMISC_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+  cat("ph RMSE:\t\t", result_HMISC_ph, "\n")
+  cat("Sulfate RMSE:\t\t", result_HMISC_Sulfate, "\n")
+  cat("Trihalomethanes RMSE:   ", result_HMISC_Trihalomethanes, "\n")
+  cat("----------------------------------\n")
+}
+```
+
+Comparemos la imputación 10 con los valores reales, es una opción muy optimista (nos ponemos en el mejor caso) pero viendo los resultados será dificil incluirlo en los métodos finales.
+
+```{r}
+# Realizamos los mismos pasos que con los modelos de imputación MICE y MISSFOREST para comparar los vectores de cada variable.
+complete_data_NAs_HMISC <- impute.transcan(complete_data_NAs_HMISC_areg_test, imputation = 10, data = complete_data_NAs, list.out = TRUE,
+                           pr = FALSE, check = FALSE)
+complete_data_NAs_HMISC <- data.frame(complete_data_NAs_HMISC)
+
+
+actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+predicted = complete_data_NAs_HMISC[is.na(complete_data_NAs$ph), ]$ph      
+result_HMISC_ph = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+predicted = complete_data_NAs_HMISC[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_HMISC_Sulfate = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+predicted = complete_data_NAs_HMISC[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_HMISC_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+result_HMISC_ph
+result_HMISC_Sulfate
+result_HMISC_Trihalomethanes
+```
+
+```{r}
+add_value(result_HMISC_ph, "result_HMISC_ph")
+add_value(result_HMISC_Sulfate, "result_HMISC_Sulfate")
+add_value(result_HMISC_Trihalomethanes, "result_HMISC_Trihalomethanes")
+res
+name
+```
+
+### Aplicamos mi
+
+El paquete mi (imputación múltiple con diagnósticos) proporciona varias funciones para tratar los valores perdidos. Al igual que otros paquetes, también crea varios modelos de imputación para aproximar los valores perdidos. Y utiliza el método predictivo de coincidencia de medias (igual que mice: para cada observación en una variable con un valor perdido, encontramos la observación de los valores disponibles) con la más cercana media predictiva para esa variable. El valor observado de esta "coincidencia" se utiliza luego como valor imputado), como novedad, agrega ruido al proceso de imputación para resolver el problema de las restricciones aditivas. Los argumentos por defecto son: rand.imp.method "bootstrap", n.imp 3 y n.iter 30.
+
+La función summary() nos ofece información de los valores imputados. La imputación múltiple es un proceso iterativo como ya hemos comentado anteriormente, en el que ir evaluando los resultados para optimizar dicha imputación, pero no nos extenderemos mucho en el proceso, dado que los resultados en distintas pruebas no han sido óptimos.
+
+```{r}
+library(mi)
+set.seed(100)
+complete_data_NAs_MI_mi <- mi(complete_data_NAs)
+summary(complete_data_NAs_MI_mi)
+```
+
+Mi() también nos ofrece herramientas para la visualización de datos. Veremos en azul los valores observados, los imputados en rojo y en gris completos (observados e imputados).
+
+```{r}
+plot(complete_data_NAs_MI_mi, ask=FALSE)
+```
+
+```{r}
+complete_data_NAs_MI <- mi::complete(complete_data_NAs_MI_mi, m=1)
+
+# Realizamos los mismos pasos que con los modelos anteriores para comparar los vectores de cada variable.
+actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+predicted = complete_data_NAs_MI[is.na(complete_data_NAs$ph), ]$ph      
+result_MI_ph = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+predicted = complete_data_NAs_MI[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_MI_Sulfate = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+predicted = complete_data_NAs_MI[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_MI_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+result_MI_ph
+result_MI_Sulfate
+result_MI_Trihalomethanes
+```
+
+```{r}
+add_value(result_MI_ph, "result_MI_ph")
+add_value(result_MI_Sulfate, "result_MI_Sulfate")
+add_value(result_MI_Trihalomethanes, "result_MI_Trihalomethanes")
+```
+
+### Aplicamos kNN
+
+En este método de imputación, los valores perdidos de un atributo se imputan utilizando el número dado de atributos que son más similares al atributo cuyos valores faltan. La similitud de dos atributos se determina mediante una función de distancia. Las principales características que podríamos decir son: No se requiere la creación de un modelo predictivo para cada atributo con datos faltantes, los atributos con múltiples valores perdidos se pueden tratar fácilmente y se tiene en cuenta la estructura de correlación de los datos, en nuestro caso hemos visto que la correlación es prácticamente 0, pero veamos que resultados nos ofrece.
+
+Como vemos en los apuntes de la asignatura, es un método muy sensible al valor de k que le demos, en principio se recomienda probar con la raíz cuadrada del número de variables. 
+
+```{r}
+set.seed(100)
+complete_data_NAs_kNN <- kNN(complete_data_NAs, k=3)
+complete_data_NAs_kNN <- complete_data_NAs_kNN[, 1:10]
+```
+
+Comparemos los resultados con los valores reales:
+
+```{r}
+# Realizamos los mismos pasos que con los modelos anteriores para comparar los vectores de cada variable.
+actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$ph), ]$ph      
+result_kNN_ph = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_kNN_Sulfate = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_kNN_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+result_kNN_ph
+result_kNN_Sulfate
+result_kNN_Trihalomethanes
+```
+Tras varias pruebas con distintos valores de k, hemos decidido k=100 como valor con menor error medio.
+
+```{r}
+set.seed(100)
+complete_data_NAs_kNN <- kNN(complete_data_NAs, k=100)
+complete_data_NAs_kNN <- complete_data_NAs_kNN
+head(complete_data_NAs_kNN)
+```
+```{r}
+# Realizamos los mismos pasos que con los modelos anteriores para comparar los vectores de cada variable.
+actual = complete_data[is.na(complete_data_NAs$ph), ]$ph         
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$ph), ]$ph      
+result_kNN_ph = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_kNN_Sulfate = Metrics::rmse(actual, predicted)
+
+actual = complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_kNN_Trihalomethanes = Metrics::rmse(actual, predicted)
+
+result_kNN_ph
+result_kNN_Sulfate
+result_kNN_Trihalomethanes
+```
+No estandarizar los datos antes de aplicar un método basado en distancias es un error, pero no tenemos una referencia previa con la que comparar, por tanto, repetiremos el proceso con el método hasta ahora mas prometedor, missForest escalado y compararemos los errores:
+
+```{r}
+library(caret)
+scaled_test <- scale(complete_data_NAs)
+```
+
+Aplicamos directamente con valor óptimo tras varias iteraciones:
+
+```{r}
+set.seed(100)
+complete_data_NAs_kNN <- kNN(scaled_test, k=100)
+complete_data_NAs_kNN <- as.data.frame(complete_data_NAs_kNN[, 1:10])
+
+# Realizamos los mismos pasos que con los modelos anteriores para comparar los vectores de cada variable.
+actual = scale(complete_data[is.na(complete_data_NAs$ph), ]$ph)        
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$ph), ]$ph      
+result_kNN_ph_scale = Metrics::rmse(actual, predicted)
+
+actual = scale(complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate)
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_kNN_Sulfate_scale = Metrics::rmse(actual, predicted)
+
+actual = scale(complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes)
+predicted = complete_data_NAs_kNN[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_kNN_Trihalomethanes_scale = Metrics::rmse(actual, predicted)
+
+result_kNN_ph_scale
+result_kNN_Sulfate_scale
+result_kNN_Trihalomethanes_scale
+```
+Usaremos de referencia missForest, el mejor método hasta ahora:
+
+```{r}
+library(missForest)
+set.seed(100)
+complete_data_NAs_MISSFOREST_scale <- missForest(scale(complete_data_NAs), verbose=TRUE)
+complete_data_NAs_MISSFOREST_scaled <- as.data.frame(complete_data_NAs_MISSFOREST_scale$ximp)
+
+# Realizamos los mismos pasos que con el modelo de imputación MICE para comparar los vectores de cada variable.
+actual = scale(complete_data[is.na(complete_data_NAs$ph), ]$ph)         
+predicted = complete_data_NAs_MISSFOREST_scaled[is.na(complete_data_NAs$ph), ]$ph      
+result_MISSFOREST_ph_scale = Metrics::rmse(actual, predicted)
+
+actual = scale(complete_data[is.na(complete_data_NAs$Sulfate), ]$Sulfate)
+predicted = complete_data_NAs_MISSFOREST_scaled[is.na(complete_data_NAs$Sulfate), ]$Sulfate      
+result_MISSFOREST_Sulfate_scale = Metrics::rmse(actual, predicted)
+
+actual = scale(complete_data[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes)
+predicted = complete_data_NAs_MISSFOREST_scaled[is.na(complete_data_NAs$Trihalomethanes), ]$Trihalomethanes      
+result_MISSFOREST_Trihalomethanes_scale = Metrics::rmse(actual, predicted)
+
+result_MISSFOREST_ph_scale
+result_MISSFOREST_Sulfate_scale
+result_MISSFOREST_Trihalomethanes_scale
+```
+
+Añadimos todos los valores a nuestros resultados.
+
+```{r}
+add_value(result_kNN_ph, "result_kNN_ph")
+add_value(result_kNN_Sulfate, "result_kNN_Sulfate")
+add_value(result_kNN_Trihalomethanes, "result_kNN_Trihalomethanes")
+
+add_value(result_kNN_ph_scale, "result_kNN_ph_scale")
+add_value(result_kNN_Sulfate_scale, "result_kNN_Sulfate_scale")
+add_value(result_kNN_Trihalomethanes_scale, "result_kNN_Trihalomethanes_scale")
+
+add_value(result_MISSFOREST_ph_scale, "result_MISSFOREST_ph_scale")
+add_value(result_MISSFOREST_Sulfate_scale, "result_MISSFOREST_Sulfate_scale")
+add_value(result_MISSFOREST_Trihalomethanes_scale, "result_MISSFOREST_Trihalomethanes_scale")
+```
+
+### Resumen y comparación de métodos de imputación
+
+Vamos a imprimir los valores obtenidos hasta ahora de los errores respecto a los valores reales en todos los métodos de imputación:
+
+```{r}
+cat(paste0(data.frame(cbind(name, res))[1,1], "\t\t\t\t"))
+cat(paste0(data.frame(cbind(name, res))[1,2], "\n"))
+cat("--------------------------------------------------------------\n")
+for (i in c(2,5,8,11,14,17,20)){
+  cat(paste0(data.frame(cbind(name, res))[i,1], ":  "))
+  cat(paste0(data.frame(cbind(name, res))[i,2], "\n"))
+  cat(paste0(data.frame(cbind(name, res))[i+1,1], ":  "))
+  cat(paste0(data.frame(cbind(name, res))[i+1,2], "\n"))
+  cat(paste0(data.frame(cbind(name, res))[i+2,1], ":  "))
+  cat(paste0(data.frame(cbind(name, res))[i+2,2], "\n"))
+  cat("--------------------------------------------------------------\n")
+}
+  
+
+```
+Seleccionaremos los métodos que mejores valores nos han dado, missForest y KNN.
+
+## Identificación y tratamiento de valores extremos.
+
+A continuación debemos estudiar los valores atípicos en nuestro conjunto de datos, pero ya hemos hecho el estudio en el apartado anterior en el estudio de la distribución de nuestros datos para la selección de métodos de imputación, por tanto, lo que haremos será generar distintos conjuntos de datos, si recordamos, hemos generado dos conjuntos de datos eliminando outliers del conjunto de los datos que no tienen valores nulos:
+
+data_Tukey_outliers <- remove_outliers_Tukey(complete_data)
+data_sd_outliers <- remove_outliers_sd(complete_data)
+
+Lo ideal sería tener varios conjuntos antes de imputar valores nulos, hemos decidido crear 3 conjuntos: Uno con todos los datos, sobre el que imputaremos valores nulos y luego eliminaremos outliers. Pero como estos outliers pueden afectar en los métodos de imputación de valores, crearemos dos conjuntos más eliminando outliers previamente, y después, un conjunto por cada función definida para eliminar outliers. Para lidiar con los valores nulos a la hora de eliminar outliers hemos decidido una opción quizás un poco rudimentaria, pero queríamos conservar los valores nulos originales y eliminar las filas en caso de que los valores no nulos fueran outliers. Para esto modificamos la función que ofrece los límites para cada columna de lo que definiremos como outliers para mostrarlos por pantalla:
+
+```{r}
+outliers_Tukey_na <- function(x) {
+
+  Q1 <- quantile(x, probs=.25)
+  Q3 <- quantile(x, probs=.75)
+  iqr = Q3-Q1
+
+ upper_limit = Q3 + (iqr*1.5)
+ lower_limit = Q1 - (iqr*1.5)
+ cat(upper_limit,"\t",lower_limit,"\n")
+}
+
+
+outliers_sd_na <- function(x) {
+  
+    upper_limit = mean(x) + 3*sd(x)
+    lower_limit = mean(x) - 3*sd(x)
+    
+    cat(upper_limit,"\t",lower_limit,"\n")
+}
+
+```
+
+```{r}
+outliers_Tukey_na(data[complete.cases(data$ph),]$ph)
+outliers_Tukey_na(data[complete.cases(data$Hardness),]$Hardness)
+outliers_Tukey_na(data[complete.cases(data$Solids),]$Solids)
+outliers_Tukey_na(data[complete.cases(data$Chloramines),]$Chloramines)
+outliers_Tukey_na(data[complete.cases(data$Sulfate),]$Sulfate)
+outliers_Tukey_na(data[complete.cases(data$Conductivity),]$Conductivity)
+outliers_Tukey_na(data[complete.cases(data$Organic_carbon),]$Organic_carbon)
+outliers_Tukey_na(data[complete.cases(data$Trihalomethanes),]$Trihalomethanes)
+outliers_Tukey_na(data[complete.cases(data$Turbidity),]$Turbidity)
+```
+En base a estos valores eliminaremos columna a columna los queno se encuentren en los rangos aceptados:
+```{r}
+test <- data
+head(test)
+```
+Vemos la función summary para comprobar que después de la transformación los máximos y los mínimos han cambiado dentro de los parámetros definidos:
+```{r}
+summary(test)
+```
+```{r}
+test <- subset(test, (ph < 11.01553 & ph > 3.139631) | is.na(ph))
+test <- subset(test, Hardness < 276.3928 & Hardness > 117.1252)
+test <- subset(test, Solids < 44831.87 & Solids > -1832.417)
+test <- subset(test, Chloramines < 11.09609 & Chloramines > 3.146221)
+test <- subset(test, (Sulfate < 438.3262 & Sulfate > 229.3235) | is.na(Sulfate))
+test <- subset(test, Conductivity < 655.8791 & Conductivity > 191.6476)
+test <- subset(test, Organic_carbon < 23.29543 & Organic_carbon > 5.328026)
+test <- subset(test, (Trihalomethanes < 109.5769 & Trihalomethanes > 23.60513) | is.na(Trihalomethanes))
+test <- subset(test, Turbidity < 6.091233 & Turbidity > 1.848797)
+no_ouliers_incomplete_Tukey <- test
+head(no_ouliers_incomplete_Tukey)
+nrow(no_ouliers_incomplete_Tukey)
+```
+Los valores son correctos en todas las columnas:
+```{r}
+summary(no_ouliers_incomplete_Tukey)
+```
+Y ahora para la segunda función:
+```{r}
+outliers_sd_na(data[complete.cases(data$ph),]$ph)
+outliers_sd_na(data[complete.cases(data$Hardness),]$Hardness)
+outliers_sd_na(data[complete.cases(data$Solids),]$Solids)
+outliers_sd_na(data[complete.cases(data$Chloramines),]$Chloramines)
+outliers_sd_na(data[complete.cases(data$Sulfate),]$Sulfate)
+outliers_sd_na(data[complete.cases(data$Conductivity),]$Conductivity)
+outliers_sd_na(data[complete.cases(data$Organic_carbon),]$Organic_carbon)
+outliers_sd_na(data[complete.cases(data$Trihalomethanes),]$Trihalomethanes)
+outliers_sd_na(data[complete.cases(data$Turbidity),]$Turbidity)
+```
+```{r}
+test <- data
+test <- subset(test, (ph < 11.86375 & ph > 2.297836) | is.na(ph))
+test <- subset(test, Hardness < 295.0088 & Hardness > 97.73021)
+test <- subset(test, Solids < 48319.81 & Solids > -4291.62)
+test <- subset(test, Chloramines < 11.87153 & Chloramines > 2.373022)
+test <- subset(test, (Sulfate < 458.0263 & Sulfate > 209.5253) | is.na(Sulfate))
+test <- subset(test, Conductivity < 668.6773 & Conductivity > 183.7329)
+test <- subset(test, Organic_carbon < 24.20946 & Organic_carbon > 4.360484)
+test <- subset(test, (Trihalomethanes < 114.9213 & Trihalomethanes > 17.87127) | is.na(Trihalomethanes))
+test <- subset(test, Turbidity < 6.307933 & Turbidity > 1.625639)
+no_ouliers_incomplete_sd <- test
+head(no_ouliers_incomplete_sd)
+nrow(no_ouliers_incomplete_sd)
+```
+Comprobamos con summary() que es correcto:
+```{r}
+summary(no_ouliers_incomplete_sd)
+```
+
+Y comprobamos los boxplots de ambos conjuntos con los datos originales:
+```{r}
+boxplot(scale(data[,1:9]))
+```
+```{r}
+boxplot(scale(no_ouliers_incomplete_Tukey[,1:9]))
+```
+```{r}
+boxplot(scale(no_ouliers_incomplete_sd[,1:9]))
+```
+Siguen presentando outliers, pero se puede apreciar el cambio, la función boxplot no tiene los mismos parametros para definir lo que es un outlier, podemos ver en cada columna los valores eliminados
+```{r}
+sort(boxplot.stats(data$ph)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Hardness)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Solids)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Chloramines)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Sulfate)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Conductivity)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Organic_carbon)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Trihalomethanes)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+sort(boxplot.stats(data$Turbidity)$out)
+cat("--------------------------------------------------------------------------------------------------------------------\n")
+```
+Y podemos geenrar un conjunto de datos con los valores intermedios de cada atributo:
+```{r}
+test <- data
+test <- subset(test, (ph < 11.0278799 & ph > 3.1020756) | is.na(ph))
+test <- subset(test, Hardness < 276.69976 & Hardness > 117.05731)
+test <- subset(test, Solids < 44868.46 & Solids > -4291.62)
+test <- subset(test, Chloramines < 11.1016281 & Chloramines > 3.1395527)
+test <- subset(test, (Sulfate < 439.7879 & Sulfate > 227.6656) | is.na(Sulfate))
+test <- subset(test, Conductivity < 656.9241 & Conductivity > 181.4838)
+test <- subset(test, Organic_carbon < 23.317699 & Organic_carbon > 5.315287)
+test <- subset(test, (Trihalomethanes < 110.431080 & Trihalomethanes > 23.136611) | is.na(Trihalomethanes))
+test <- subset(test, Turbidity < 6.099632 & Turbidity > 1.844372)
+no_ouliers_incomplete_boxplot <- test
+head(no_ouliers_incomplete_boxplot)
+nrow(no_ouliers_incomplete_boxplot)
+```
+```{r}
+boxplot(scale(no_ouliers_incomplete_boxplot[,1:9]))
+```
+Aunque no apreciamos apenas diferencias con nuetro método por cuartiles.
+
+A continuación procederemos a la imputación de datos con los conjuntos de datos generados, dando lugar a más conjuntos por cada uno, usaremos dos métodos de imputación para cada conjunto (missForest y KNN):
+
+## Imputación de valores nulos con los métodos seleccionados
+
+### missForest:
+
+```{r}
+set.seed(100)
+imp_1 <- missForest(data, verbose=TRUE)
+mF_complete <- imp_1$ximp
+imp_2 <- missForest(no_ouliers_incomplete_Tukey, verbose=TRUE)
+mF_Tukey <- imp_2$ximp
+imp_3 <- missForest(no_ouliers_incomplete_sd, verbose=TRUE)
+mF_sd <- imp_3$ximp
+```
+Ahora deberíamos buscar outliers en el conjunto completo, pero también podemos ver los resultados en los demás, vemaos el número de registros que perdemos:
+```{r}
+nrow(mF_complete)
+nrow(mF_Tukey)
+nrow(mF_sd)
+```
+```{r}
+nrow(remove_outliers_Tukey(mF_complete))
+
+nrow(remove_outliers_sd(mF_complete))
+
+nrow(remove_outliers_Tukey(mF_Tukey))
+
+nrow(remove_outliers_sd(mF_sd))
+```
+Generaremos los conjuntos de datos para comprobar resultados después.
+```{r}
+mF_complete_Tuk <- remove_outliers_Tukey(mF_complete)
+
+mF_complete_sd <- (mF_complete)
+
+mF_Tukey_Tuk <- remove_outliers_Tukey(mF_Tukey)
+
+mF_sd_sd <- remove_outliers_sd(mF_sd)
+```
+
+### KNN:
+
+Seguiremos el mismo proceso que para missForest, como en el caso anterior omitiremos el conjunto de datos generado con los boxplots ya que es muy similar a no_ouliers_incomplete_Tukey. También escalaremos los datos para no influir en las distancias:
+
+```{r}
+set.seed(100)
+
+data_scaled = as.data.frame(cbind(scale(data[,1:9]), data[,10]))
+names(data_scaled)[names(data_scaled) == "V10"] <- "Potability"
+
+data_scaled_tuk = as.data.frame(cbind(scale(no_ouliers_incomplete_Tukey[,1:9]), no_ouliers_incomplete_Tukey[,10]))
+names(data_scaled_tuk)[names(data_scaled_tuk) == "V10"] <- "Potability"
+
+data_scaled_sd = as.data.frame(cbind(scale(no_ouliers_incomplete_sd[,1:9]), no_ouliers_incomplete_sd[,10]))
+names(data_scaled_sd)[names(data_scaled_sd) == "V10"] <- "Potability"
+
+imp_1 <- kNN(data_scaled, k=100)
+KNN_complete <- imp_1[,1:10]
+imp_2 <- kNN(data_scaled_tuk, k=100)
+KNN_Tukey <- imp_2[,1:10]
+imp_3 <- kNN(data_scaled_sd, k=100)
+KNN_sd <- imp_3[,1:10]
+```
+
+```{r}
+nrow(KNN_complete)
+nrow(KNN_Tukey)
+nrow(KNN_sd)
+```
+```{r}
+nrow(remove_outliers_Tukey(KNN_complete))
+
+nrow(remove_outliers_sd(KNN_complete))
+
+nrow(remove_outliers_Tukey(KNN_Tukey))
+
+nrow(remove_outliers_sd(KNN_sd))
+
+```
+```{r}
+KNN_complete_Tuk <- remove_outliers_Tukey(KNN_complete)
+
+KNN_complete_sd <- (KNN_complete)
+
+KNN_Tukey_Tuk <- remove_outliers_Tukey(KNN_Tukey)
+
+KNN_sd_sd <- remove_outliers_sd(KNN_sd)
+```
+
+Las distribuciones resultantes son similares en todos los conjuntos y ya hemos visto los boxplots previamente, aportamos el ejemplo del conjunto mF_Tukey_Tuk y KNN_Tukey_Tuk (los dos modelos de imputación):
+
+```{r   fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+library(GGally)
+ggpairs(mF_Tukey_Tuk, columns = 1:9, ggplot2::aes(colour=as.factor(Potability)), progress = FALSE)
+```
+```{r}
+boxplot(scale(mF_Tukey_Tuk[,1:9]))
+```
+
+```{r   fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+library(GGally)
+ggpairs(KNN_Tukey_Tuk, columns = 1:9, ggplot2::aes(colour=as.factor(Potability)), progress = FALSE)
+```
+```{r}
+boxplot(scale(KNN_Tukey_Tuk[,1:9]))
+```
+******
+# Análisis de los datos.
+******
+
+## Selección de los grupos de datos que se quieren analizar/comparar (planificación de los análisis a aplicar).
+
+Puesto que en nuestro caso tenemos un único grupo de datos con la etiqueta potabilidad para clasificar las muestras de agua entre las potables y las no potables, no tenemos ningún elemento comparativo además de la potabilidad, por lo que nos centraremos en clasificar el conjunto de datos con distintos algoritmos de clasificación.
+
+## Comprobación de la normalidad y homogeneidad de la varianza.
+
+En cuanto al estudio de normalidad, hemos visto anteriormente información sobre los registros completos, estudiando la normalidad de cada atributo y test multivariables, la conclusión fue que no podemos asegurar que las poblaciones son normales, haremos un último ejemplo con uno de los conjuntos con los datos imputados, concretamente, mF_sd_sd, pero ninguno de ellos pasa los test de normalidad, para los atributos Organic_carbon y Turbidity en uno de los conjuntos se acepta la hipotesis de normalidad. No compararemos con los conjuntos generados por KNN porque los resultados son muy similares.
+
+```{r}
+library(MVN)
+result <- mvn(mF_sd_sd, multivariatePlot = "qq", showOutliers = TRUE)
+```
+```{r}
+result$multivariateNormality
+```
+
+```{r}
+result$univariateNormality
+```
+
+En el estudio de la homocedasticidad, la igualdad de varianzas entre los grupos que se van a comparar, debemos tener en cuenta los datos anteriores, es decir, si no se puede alcanzar cierta seguridad de que las poblaciones que se comparan son de tipo normal, es recomendable recurrir a test que comparen la mediana de la varianza. Para esto optaremos por el test de Fligner-Killeen, con la librería stats. Lo haremos con un conjunto de datos, los resultados con los conjuntos generados por KNN son muy similares.
+
+```{r}
+library(stats)
+fligner.test(ph ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Hardness ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Solids ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Chloramines ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Sulfate ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Conductivity ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Organic_carbon ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Trihalomethanes ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(Turbidity ~ as.factor(Potability), data=mF_sd_sd)
+```
+Hay formas de visualizarlo, como por ejemplo:
+
+```{r}
+ggplot(mF_sd_sd,aes(x=as.factor(Potability),y=ph, col=ph)) + geom_boxplot() +
+  geom_jitter(position=position_jitter(0.1)) + guides(col=FALSE)
+```
+```{r}
+ggplot(mF_sd_sd,aes(x=as.factor(Potability),y=Trihalomethanes, col=Trihalomethanes)) + geom_boxplot() +
+  geom_jitter(position=position_jitter(0.1)) + guides(col=FALSE)
+```
+```{r fig.width=12}
+par(mfrow=c(2,1))                 # enable two panels per plot
+  stripchart(ph ~ Potability, data=mF_sd_sd, pch="|", ylim=c(.5, 2.5))   # narrow plotting symbol
+  stripchart(ph ~ Potability, data=mF_sd_sd, meth="j", ylim=c(.5, 2.5))  # jittered to mitigate overplotting
+par(mfrow=c(1,1))                 # return to single-panel plotting
+```
+```{r fig.width=12}
+par(mfrow=c(2,1))                 # enable two panels per plot
+  stripchart(Trihalomethanes  ~ Potability, data=mF_sd_sd, pch="|", ylim=c(.5, 2.5))   # narrow plotting symbol
+  stripchart(Trihalomethanes  ~ Potability, data=mF_sd_sd, meth="j", ylim=c(.5, 2.5))  # jittered to mitigate overplotting
+par(mfrow=c(1,1)) 
+```
+
+Podemos recurrir a transformaciones para tratar de corregirlo, en este caso aplicaremos transformación Box-Cox para una única variable, tal como vemos en la documentación de la asignatura, probemos con un atributo con p-value más cercano a 0.05 (dentro de las posibilidades de los datos), a ver los resultados, probaremos con Chloramines, que nos ha dado un p-value de	0.0147 en saphiro-test.
+
+```{r}
+library(DescTools)
+
+x.norm <- BoxCox(mF_sd_sd$Chloramines, lambda = BoxCoxLambda(mF_sd_sd$Chloramines))
+
+par(mfrow=c(2,2))
+qqnorm(mF_sd_sd$Chloramines, main="Original")
+qqline(mF_sd_sd$Chloramines,col=2)
+qqnorm(x.norm, main="Box-Cox")
+qqline(x.norm,col=2)
+hist(mF_sd_sd$Chloramines,main="Original")
+hist(x.norm, main="Box-Cox")
+```
+Y comprobamos los resultados con los test de normalidad y homocedasticidad.
+
+```{r}
+shapiro.test(mF_sd_sd$Chloramines)
+shapiro.test(x.norm)
+```
+```{r}
+fligner.test(Chloramines ~ as.factor(Potability), data=mF_sd_sd)
+fligner.test(x.norm ~ as.factor(mF_sd_sd$Potability))
+```
+Es posible hacerlo con la librería MASS, pero los resultados son un poco diefrentes, incluso peores, no estamos limitando un rango de lambda, en cualquier caso se trata de una prueba:
+
+```{r}
+library(MASS)
+library(rcompanion)
+
+Box = boxcox(mF_sd_sd$Chloramines ~ 1,              
+             lambda = seq(-6,6,0.1)     
+             )
+
+Cox = data.frame(Box$x, Box$y)           
+
+Cox2 = Cox[with(Cox, order(-Cox$Box.y)),] 
+
+Cox2[1,]                                 
+
+lambda = Cox2[1, "Box.x"]
+
+T_box = (mF_sd_sd$Chloramines ^ lambda - 1)/lambda   
+
+plotNormalHistogram(mF_sd_sd$Chloramines)
+plotNormalHistogram(T_box)
+```
+```{r}
+shapiro.test(T_box)
+fligner.test(T_box ~ as.factor(mF_sd_sd$Potability))
+```
+Existen procesos que nos podrían ayudar a intentar corregir tanto la normalidad como la homocedasticidad (no siempre es posible), pero viendo los resultados de los diferentes test hechos hasta ahora, y teniendo en cuenta que no debería afectar mucho a los modelos de clasificación que tenemos pensado aplicar, no merece la pena profundizar mucho más en esto.
+
+## Aplicación de pruebas estadísticas para comparar los grupos de datos.
+
+Lo primero que debemos hacer es dividir los conjuntos de datos en dos, una parte para train y otra para test, los conjuntos resultantes son:
+
+mF_complete_Tuk
+mF_complete_sd
+mF_Tukey_Tuk
+mF_sd_sd
+
+KNN_complete_Tuk
+KNN_complete_sd
+KNN_Tukey_Tuk
+KNN_sd_sd
+
+```{r}
+library(rminer)
+set.seed(100)
+
+h<-holdout(mF_complete_Tuk$Potability,ratio=2/3,mode="stratified")
+mF_complete_Tuk_train<-mF_complete_Tuk[h$tr,]
+mF_complete_Tuk_test<-mF_complete_Tuk[h$ts,]
+print(table(mF_complete_Tuk_train$Potability))
+print(table(mF_complete_Tuk_test$Potability))
+
+h<-holdout(mF_complete_sd$Potability,ratio=2/3,mode="stratified")
+mF_complete_sd_train<-mF_complete_sd[h$tr,]
+mF_complete_sd_test<-mF_complete_sd[h$ts,]
+print(table(mF_complete_sd_train$Potability))
+print(table(mF_complete_sd_test$Potability))
+
+h<-holdout(mF_Tukey_Tuk$Potability,ratio=2/3,mode="stratified")
+mF_Tukey_Tuk_train<-mF_Tukey_Tuk[h$tr,]
+mF_Tukey_Tuk_test<-mF_Tukey_Tuk[h$ts,]
+print(table(mF_Tukey_Tuk_train$Potability))
+print(table(mF_Tukey_Tuk_test$Potability))
+
+h<-holdout(mF_sd_sd$Potability,ratio=2/3,mode="stratified")
+mF_sd_sd_train<-mF_sd_sd[h$tr,]
+mF_sd_sd_test<-mF_sd_sd[h$ts,]
+print(table(mF_sd_sd_train$Potability))
+print(table(mF_sd_sd_test$Potability))
+
+h<-holdout(KNN_complete_Tuk$Potability,ratio=2/3,mode="stratified")
+KNN_complete_Tuk_train<-KNN_complete_Tuk[h$tr,]
+KNN_complete_Tuk_test<-KNN_complete_Tuk[h$ts,]
+print(table(KNN_complete_Tuk_train$Potability))
+print(table(KNN_complete_Tuk_test$Potability))
+
+h<-holdout(KNN_complete_sd$Potability,ratio=2/3,mode="stratified")
+KNN_complete_sd_train<-KNN_complete_sd[h$tr,]
+KNN_complete_sd_test<-KNN_complete_sd[h$ts,]
+print(table(KNN_complete_sd_train$Potability))
+print(table(KNN_complete_sd_test$Potability))
+
+h<-holdout(KNN_Tukey_Tuk$Potability,ratio=2/3,mode="stratified")
+KNN_Tukey_Tuk_train<-KNN_Tukey_Tuk[h$tr,]
+KNN_Tukey_Tuk_test<-KNN_Tukey_Tuk[h$ts,]
+print(table(KNN_Tukey_Tuk_train$Potability))
+print(table(KNN_Tukey_Tuk_test$Potability))
+
+h<-holdout(KNN_sd_sd$Potability,ratio=2/3,mode="stratified")
+KNN_sd_sd_train<-KNN_sd_sd[h$tr,]
+KNN_sd_sd_test<-KNN_sd_sd[h$ts,]
+print(table(KNN_sd_sd_train$Potability))
+print(table(KNN_sd_sd_test$Potability))
+```
+
+```{r}
+library(caret)
+library(parallel)
+library(doParallel)
+
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+model_1 <- caret::train(mF_complete_Tuk_train[, -10], as.factor(mF_complete_Tuk_train$Potability), 
+                 method = "rf", trControl = caret::trainControl(method = "cv", p = 0.8, number = 5))
+
+stopCluster(cl)
+model_1
+```
+
+```{r}
+predict <- predict(model_1, mF_complete_Tuk_test)
+confusionMatrix(predict, as.factor(mF_complete_Tuk_test$Potability))
+```
+
+```{r}
+plot(model_1)
+```
+
+```{r}
+plot(varImp(model_1, scale = FALSE)) 
+```
+
+```{r}
+library(randomForest)
+
+set.seed(100)
+
+model_1.1<-randomForest(as.factor(Potability)~.,mF_complete_Tuk_train,ntree=10000)
+model_1.1
+```
+
+```{r}
+predict_rf_2 <- predict(model_1.1, mF_complete_Tuk_test)
+cm <- confusionMatrix(predict_rf_2, as.factor(mF_complete_Tuk_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+accuracy_data <- data.frame("Nombre"="model_1", "accuracy"=c(overall.accuracy))
+accuracy_data
+```
+
+
+```{r}
+set.seed(100)
+
+model_2<-randomForest(as.factor(Potability)~.,mF_complete_sd_train,ntree=10000)
+model_2
+```
+
+```{r}
+predict_rf <- predict(model_2, mF_complete_sd_test)
+cm <- confusionMatrix(predict_rf, as.factor(mF_complete_sd_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_2", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+```{r}
+set.seed(100)
+
+model_3<-randomForest(as.factor(Potability)~.,mF_Tukey_Tuk_train,ntree=10000)
+model_3
+```
+
+```{r}
+predict_rf <- predict(model_3, mF_Tukey_Tuk_test)
+cm <- confusionMatrix(predict_rf, as.factor(mF_Tukey_Tuk_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_3", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+```{r}
+set.seed(100)
+
+model_4<-randomForest(as.factor(Potability)~.,mF_sd_sd_train,ntree=10000)
+model_4
+```
+
+```{r}
+predict_rf <- predict(model_4, mF_sd_sd_test)
+cm <- confusionMatrix(predict_rf, as.factor(mF_sd_sd_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_4", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+```{r}
+set.seed(100)
+
+model_5<-randomForest(as.factor(Potability)~.,KNN_complete_Tuk_train,ntree=10000)
+model_5
+```
+
+```{r}
+predict_rf <- predict(model_5, KNN_complete_Tuk_test)
+cm <- confusionMatrix(predict_rf, as.factor(KNN_complete_Tuk_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_5", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+```{r}
+set.seed(100)
+
+model_6<-randomForest(as.factor(Potability)~.,KNN_complete_sd_train,ntree=10000, mtry=3)
+model_6
+```
+
+```{r}
+predict_rf <- predict(model_6, KNN_complete_sd_test)
+cm <- confusionMatrix(predict_rf, as.factor(KNN_complete_sd_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_6", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+```{r}
+set.seed(100)
+
+model_7<-randomForest(as.factor(Potability)~.,KNN_Tukey_Tuk_train,ntree=10000)
+model_7
+```
+
+```{r}
+predict_rf <- predict(model_7, KNN_Tukey_Tuk_test)
+cm <- confusionMatrix(predict_rf, as.factor(KNN_Tukey_Tuk_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_7", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+```{r}
+set.seed(100)
+
+model_8<-randomForest(as.factor(Potability)~.,KNN_sd_sd_train,ntree=10000)
+model_8
+```
+
+```{r}
+predict_rf <- predict(model_8, KNN_sd_sd_test)
+cm <- confusionMatrix(predict_rf, as.factor(KNN_sd_sd_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_8", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+```
+
+Probamos eliminando outliers unicamente antes de imputar, los valores mejoran respecto a la eliminación de outliers 2 veces.
+
+```{r}
+h<-holdout(mF_Tukey$Potability,ratio=2/3,mode="stratified")
+mF_Tukey_train<-mF_Tukey[h$tr,]
+mF_Tukey_test<-mF_Tukey[h$ts,]
+print(table(mF_Tukey_train$Potability))
+print(table(mF_Tukey_test$Potability))
+
+h<-holdout(mF_sd$Potability,ratio=2/3,mode="stratified")
+mF_sd_train<-mF_sd[h$tr,]
+mF_sd_test<-mF_sd[h$ts,]
+print(table(mF_sd_train$Potability))
+print(table(mF_sd_test$Potability))
+```
+```{r}
+set.seed(100)
+
+model_test_1<-randomForest(as.factor(Potability)~.,mF_Tukey_train,ntree=10000)
+model_test_1
+```
+
+```{r}
+predict_rf <- predict(model_test_1, mF_Tukey_test)
+confusionMatrix(predict_rf, as.factor(mF_Tukey_test$Potability))
+```
+
+```{r}
+set.seed(100)
+
+model_test_2<-randomForest(as.factor(Potability)~.,mF_sd_train,ntree=10000)
+model_test_2
+```
+
+```{r}
+predict_rf <- predict(model_test_2, mF_sd_test)
+confusionMatrix(predict_rf, as.factor(mF_sd_test$Potability))
+```
+
+Model 6 ha sido el más prometedor, probemos a elegir las variables más importantes
+
+```{r}
+varImpPlot(model_6)
+```
+
+```{r}
+KNN_complete_sd_train$Potability <- as.factor(KNN_complete_sd_train$Potability)
+KNN_complete_sd_test$Potability <- as.factor(KNN_complete_sd_test$Potability)
+```
+
+A continuación vamos a tunear el modelo en base a distintos valores de los parámetros permitidos en este tipo de modelos. Probaremos con distintos valores mediante las librerías ranger y tidymodels de forma que podamos ver cuáles son los valores más interesantes de los parámetros para aplicar este tipo de modelos.
+
+Además, utilizaremos paraller y doParallel para tratar de reducir los tiempos de ejecución debido al alto volumen de combinaciones posibles que surgen de la cantidad de valores de los parámetros.
+
+```{r}
+library(ranger)
+library(tidymodels)
+library(parallel)
+library(doParallel)
+
+# DEFINICIÓN DEL MODELO Y DE LOS HIPERPARÁMETROS A OPTIMIZAR
+# ==============================================================================
+modelo <- rand_forest(
+             mode  = "classification",
+             mtry  = tune(),
+             trees = tune()
+          ) %>%
+          set_engine(
+            engine     = "ranger",
+            max.depth  = tune(),
+            importance = "none",
+            seed       = 100
+          )
+
+control <- control_resamples(save_pred = TRUE)
+# DEFINICIÓN DEL PREPROCESADO
+# ==============================================================================
+# En este caso no hay preprocesado, por lo que el transformer solo contiene
+# la definición de la fórmula y los datos de entrenamiento.
+transformer <- recipe(
+                  formula = Potability ~ .,
+                  data    =  KNN_complete_sd_train
+               )
+
+# DEFINICIÓN DE LA ESTRATEGIA DE VALIDACIÓN Y CREACIÓN DE PARTICIONES
+# ==============================================================================
+set.seed(100)
+cv_folds <- vfold_cv(
+              data    = KNN_complete_sd_train,
+              v       = 5,
+              strata  = Potability
+            )
+
+# WORKFLOW
+# ==============================================================================
+workflow_modelado <- workflow() %>%
+                     add_recipe(transformer) %>%
+                     add_model(modelo)
+                     
+
+# GRID DE HIPERPARÁMETROS
+# ==============================================================================
+hiperpar_grid <- expand_grid(
+                  'trees'     = c(100, 500, 1000, 2000),
+                  'mtry'      = c( 4, 5),
+                  'max.depth' = c(1, 3, 10, 20, 40, 60, 80, 100)
+                 )
+
+# EJECUCIÓN DE LA OPTIMIZACIÓN DE HIPERPARÁMETROS
+# ==============================================================================
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+grid_fit <- tune_grid(
+              object    = workflow_modelado,
+              resamples = cv_folds,
+              metrics   = metric_set(yardstick::accuracy),
+              grid      = hiperpar_grid,
+              control = control
+            )
+
+stopCluster(cl)
+```
+
+```{r}
+grid_fit %>% collect_metrics(summarize = FALSE) %>% head()
+```
+
+Podemos ver la distribución de la exactitud en función de los parámetros seleccionados.
+
+```{r}
+library(ggpubr)
+p1 <- ggplot(
+        data = grid_fit %>% collect_metrics(summarize = FALSE),
+        aes(x = .estimate, fill = .metric)) +
+      geom_density(alpha = 0.5) +
+      theme_bw() 
+p2 <- ggplot(
+        data = grid_fit %>% collect_metrics(summarize = FALSE),
+        aes(x = .metric, y = .estimate, fill = .metric, color = .metric)) +
+      geom_boxplot(outlier.shape = NA, alpha = 0.1) +
+      geom_jitter(width = 0.05, alpha = 0.3) +
+      coord_flip() +
+      theme_bw() +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  
+ggarrange(p1, p2, nrow = 2, common.legend = TRUE, align = "v") %>% 
+annotate_figure(
+  top = text_grob("Distribución errores de validación cruzada", size = 15)
+)
+```
+
+Podemos observar que los modelos generados se concentran alrededor de un 67% de exactitud.
+
+```{r}
+show_best(grid_fit, metric="accuracy")
+```
+
+Con la función select_best() podemos generar un modelo con los mejores parámetros.
+
+```{r}
+mejores_hiperpar <- select_best(grid_fit, metric="accuracy")
+
+modelo_final_fit <- finalize_workflow(
+                        x = workflow_modelado,
+                        parameters = mejores_hiperpar
+                    ) %>%
+                    fit(
+                      data = KNN_complete_sd_train
+                    ) %>%
+                    pull_workflow_fit()
+```
+
+```{r}
+predicciones <- modelo_final_fit %>%
+                predict(new_data = KNN_complete_sd_test)
+
+predicciones <- predicciones %>% 
+                bind_cols(KNN_complete_sd_test %>% dplyr::select(Potability))
+
+accuracy_test  <- accuracy(
+                     data     = predicciones,
+                     truth    = Potability,
+                     estimate = .pred_class,
+                     na_rm    = TRUE
+                  )
+accuracy_test
+```
+
+```{r}
+mat_confusion <- predicciones %>%
+                 conf_mat(
+                   truth     = Potability,
+                   estimate  = .pred_class
+                 )
+mat_confusion
+```
+Vamos a realizar una prueba eliminando Organic_carbon:
+
+```{r}
+library(randomForest)
+set.seed(100)
+model_6_1<-randomForest(as.factor(Potability)~Sulfate+ph+Hardness+Solids+Chloramines+Turbidity,KNN_complete_sd_train,ntree=2000, mtry=4)
+model_6_1
+```
+
+```{r}
+predict_rf <- predict(model_6_1, KNN_complete_sd_test)
+confusionMatrix(predict_rf, as.factor(KNN_complete_sd_test$Potability))
+```
+Vamos a probar ahora eliminando Turbudity:
+
+```{r}
+library(randomForest)
+set.seed(100)
+model_6_2<-randomForest(as.factor(Potability)~Sulfate+ph+Hardness+Solids+Chloramines+Organic_carbon,KNN_complete_sd_train,ntree=2000, mtry=4)
+model_6_2
+```
+```{r}
+predict_rf <- predict(model_6_2, KNN_complete_sd_test)
+cm <- confusionMatrix(predict_rf, as.factor(KNN_complete_sd_test$Potability))
+cm
+```
+```{r}
+overall <- cm$overall
+overall.accuracy <- overall['Accuracy'] 
+temp <- data.frame("Nombre"="model_6_mod", "accuracy"=c(overall.accuracy))
+accuracy_data <- rbind(accuracy_data, temp)
+
+```
+
+Vemos que eliminando Turbidity mejoramos la exactitud, por encima del 72% y coincidiendo con OOB error.
+
+Probamos eliminando ambas:
+```{r}
+library(randomForest)
+set.seed(100)
+model_6_3<-randomForest(as.factor(Potability)~Sulfate+ph+Hardness+Solids+Chloramines,KNN_complete_sd_train,ntree=2000, mtry=4)
+model_6_3
+```
+```{r}
+predict_rf <- predict(model_6_3, KNN_complete_sd_test)
+confusionMatrix(predict_rf, as.factor(KNN_complete_sd_test$Potability))
+```
+
+En cambio, eliminando las dos, el resultado es peor.
+
+Por tanto, podemos concluir que el mejor conjunto para la predicción es KNN_complete_sd, eliminando Turbidity.
+
+Podemos mostrar los resultados de todos los modelos y el que hemos considerado mejor y ajustado mejor los parámetros:
+```{r fig.width=10}
+ggplot(accuracy_data, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity")  + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+
+### XGBOOST
+
+Pasamos a realizar los mismos pasos que en el caso de RabdomForest con el algoritmo xgboost classifier. Para cada modelo, evaluaremos los valores de los parámetros que luego utilizaremos en cada uno.
+
+Tras diferentes pruebas y para reducir el tiempo de ejecución, en el caso de los parámetros colsample_bytree, subsample y min_child_weight hemos decidido dejarlos constantes para todos los modelos con valor 1.
+
+Para evitar errores, volvemos a lanzar la división de los conjuntos de entrenamiento y test.
+
+```{r}
+library(rminer)
+set.seed(100)
+
+h<-holdout(mF_complete_Tuk$Potability,ratio=2/3,mode="stratified")
+mF_complete_Tuk_train<-mF_complete_Tuk[h$tr,]
+mF_complete_Tuk_test<-mF_complete_Tuk[h$ts,]
+print(table(mF_complete_Tuk_train$Potability))
+print(table(mF_complete_Tuk_test$Potability))
+
+h<-holdout(mF_complete_sd$Potability,ratio=2/3,mode="stratified")
+mF_complete_sd_train<-mF_complete_sd[h$tr,]
+mF_complete_sd_test<-mF_complete_sd[h$ts,]
+print(table(mF_complete_sd_train$Potability))
+print(table(mF_complete_sd_test$Potability))
+
+h<-holdout(mF_Tukey_Tuk$Potability,ratio=2/3,mode="stratified")
+mF_Tukey_Tuk_train<-mF_Tukey_Tuk[h$tr,]
+mF_Tukey_Tuk_test<-mF_Tukey_Tuk[h$ts,]
+print(table(mF_Tukey_Tuk_train$Potability))
+print(table(mF_Tukey_Tuk_test$Potability))
+
+h<-holdout(mF_sd_sd$Potability,ratio=2/3,mode="stratified")
+mF_sd_sd_train<-mF_sd_sd[h$tr,]
+mF_sd_sd_test<-mF_sd_sd[h$ts,]
+print(table(mF_sd_sd_train$Potability))
+print(table(mF_sd_sd_test$Potability))
+
+h<-holdout(KNN_complete_Tuk$Potability,ratio=2/3,mode="stratified")
+KNN_complete_Tuk_train<-KNN_complete_Tuk[h$tr,]
+KNN_complete_Tuk_test<-KNN_complete_Tuk[h$ts,]
+print(table(KNN_complete_Tuk_train$Potability))
+print(table(KNN_complete_Tuk_test$Potability))
+
+h<-holdout(KNN_complete_sd$Potability,ratio=2/3,mode="stratified")
+KNN_complete_sd_train<-KNN_complete_sd[h$tr,]
+KNN_complete_sd_test<-KNN_complete_sd[h$ts,]
+print(table(KNN_complete_sd_train$Potability))
+print(table(KNN_complete_sd_test$Potability))
+
+h<-holdout(KNN_Tukey_Tuk$Potability,ratio=2/3,mode="stratified")
+KNN_Tukey_Tuk_train<-KNN_Tukey_Tuk[h$tr,]
+KNN_Tukey_Tuk_test<-KNN_Tukey_Tuk[h$ts,]
+print(table(KNN_Tukey_Tuk_train$Potability))
+print(table(KNN_Tukey_Tuk_test$Potability))
+
+h<-holdout(KNN_sd_sd$Potability,ratio=2/3,mode="stratified")
+KNN_sd_sd_train<-KNN_sd_sd[h$tr,]
+KNN_sd_sd_test<-KNN_sd_sd[h$ts,]
+print(table(KNN_sd_sd_train$Potability))
+print(table(KNN_sd_sd_test$Potability))
+```
+
+#### Modelo 1
+
+```{r}
+library(caret)
+
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_1 <- train(as.factor(Potability) ~., data = mF_complete_Tuk_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados gráficos de los modelos, que nos permitirán elegir los mejores valores de los parámetros.
+plot(model_xgb_1)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_1, mF_complete_Tuk_test)
+confusionMatrix(test_predict, as.factor(mF_complete_Tuk_test$Potability))
+```
+
+Elegimos los siguientes valores para este modelo:
+
+tune_grid <- expand.grid(nrounds=c(100), 
+                         max_depth = c(15),
+                         eta = c(0.05),
+                         gamma = c(1)
+
+```{r}
+library(xgboost)
+
+set.seed(100)
+
+train.data = as.matrix(mF_complete_Tuk_train[, -10])
+train.label = mF_complete_Tuk_train[, 10]
+test.data = as.matrix(mF_complete_Tuk_test[, -10])
+test.label = mF_complete_Tuk_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(mF_complete_Tuk_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 15,
+  gamma = 1,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 100
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(mF_complete_Tuk_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(mF_complete_Tuk_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb1 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb1)))
+
+accuracy_data2<- data.frame("Nombre"="model_xgb_1", "accuracy"=result_xgb1)
+```
+
+#### Modelo 2
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_2 <- train(as.factor(Potability) ~., data = mF_complete_sd_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_2)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_2, mF_complete_sd_test)
+confusionMatrix(test_predict, as.factor(mF_complete_sd_test$Potability))
+```
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(100), 
+                         max_depth = c(15),
+                         eta = c(0.05),
+                         gamma = c(0.01),
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(mF_complete_sd_train[, -10])
+train.label = mF_complete_sd_train[, 10]
+test.data = as.matrix(mF_complete_sd_test[, -10])
+test.label = mF_complete_sd_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(mF_complete_sd_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 15,
+  gamma = 0.01,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 100
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(mF_complete_sd_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(mF_complete_sd_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb2 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb2)))
+
+temp <- data.frame("Nombre"="model_xgb_2", "accuracy"=c(result_xgb2))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+
+#### Modelo 3
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_3 <- train(as.factor(Potability) ~., data = mF_Tukey_Tuk_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_3)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_3, mF_Tukey_Tuk_test)
+confusionMatrix(test_predict, as.factor(mF_Tukey_Tuk_test$Potability))
+```
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(500), 
+                         max_depth = c(15),
+                         eta = c(0.05),
+                         gamma = c(0.01),
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(mF_Tukey_Tuk_train[, -10])
+train.label = mF_Tukey_Tuk_train[, 10]
+test.data = as.matrix(mF_Tukey_Tuk_test[, -10])
+test.label = mF_Tukey_Tuk_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(mF_Tukey_Tuk_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 15,
+  gamma = 0.01,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 500
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(mF_Tukey_Tuk_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(mF_Tukey_Tuk_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb3 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb3)))
+
+temp <- data.frame("Nombre"="model_xgb_3", "accuracy"=c(result_xgb3))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+
+#### Modelo 4
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_4 <- train(as.factor(Potability) ~., data = mF_sd_sd_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_4)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_4, mF_sd_sd_test)
+confusionMatrix(test_predict, as.factor(mF_sd_sd_test$Potability))
+```
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(500), 
+                         max_depth = c(15),
+                         eta = c(0.2),
+                         gamma = c(1),
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(mF_sd_sd_train[, -10])
+train.label = mF_sd_sd_train[, 10]
+test.data = as.matrix(mF_sd_sd_test[, -10])
+test.label = mF_sd_sd_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(mF_sd_sd_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.2,
+  max_depth = 15,
+  gamma = 1,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 500
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(mF_sd_sd_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(mF_sd_sd_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb4 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb4)))
+
+temp <- data.frame("Nombre"="model_xgb_4", "accuracy"=c(result_xgb4))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+
+#### Modelo 5
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_5 <- train(as.factor(Potability) ~., data = KNN_complete_Tuk_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_5)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_5, KNN_complete_Tuk_test)
+confusionMatrix(test_predict, as.factor(KNN_complete_Tuk_test$Potability))
+```
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(500), 
+                         max_depth = c(10),
+                         eta = c(0.05),
+                         gamma = c(1)
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(KNN_complete_Tuk_train[, -10])
+train.label = KNN_complete_Tuk_train[, 10]
+test.data = as.matrix(KNN_complete_Tuk_test[, -10])
+test.label = KNN_complete_Tuk_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(KNN_complete_Tuk_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 10,
+  gamma = 1,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 500
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(KNN_complete_Tuk_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(KNN_complete_Tuk_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb5 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb5)))
+
+temp <- data.frame("Nombre"="model_xgb_5", "accuracy"=c(result_xgb5))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+
+#### Modelo 6
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_6 <- train(as.factor(Potability) ~., data = KNN_complete_sd_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_6)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_6, KNN_complete_sd_test)
+confusionMatrix(test_predict, as.factor(KNN_complete_sd_test$Potability))
+```
+
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(500), 
+                         max_depth = c(10),
+                         eta = c(0.05),
+                         gamma = c(0.01)
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(KNN_complete_sd_train[, -10])
+train.label = KNN_complete_sd_train[, 10]
+test.data = as.matrix(KNN_complete_sd_test[, -10])
+test.label = KNN_complete_sd_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(KNN_complete_sd_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 10,
+  gamma = 0.01,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 500
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(KNN_complete_sd_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(KNN_complete_sd_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb6 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb6)))
+
+temp <- data.frame("Nombre"="model_xgb_6", "accuracy"=c(result_xgb6))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+
+#### Modelo 7
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_7 <- train(as.factor(Potability) ~., data = KNN_Tukey_Tuk_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_7)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_7, KNN_Tukey_Tuk_test)
+confusionMatrix(test_predict, as.factor(KNN_Tukey_Tuk_test$Potability))
+```
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(500), 
+                         max_depth = c(15),
+                         eta = c(0.05),
+                         gamma = c(0.01)
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(KNN_Tukey_Tuk_train[, -10])
+train.label = KNN_Tukey_Tuk_train[, 10]
+test.data = as.matrix(KNN_Tukey_Tuk_test[, -10])
+test.label = KNN_Tukey_Tuk_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(KNN_Tukey_Tuk_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 15,
+  gamma = 0.01,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 500
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(KNN_Tukey_Tuk_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(KNN_Tukey_Tuk_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb7 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb7)))
+
+temp <- data.frame("Nombre"="model_xgb_7", "accuracy"=c(result_xgb7))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+
+#### Modelo 8
+
+```{r}
+# Seleccionamos el método, Cross Validation y el número de folds, 5.
+trctrl <- trainControl(method = "cv", number = 5)
+
+# Lanzamos múltiples modelos con distintos valores para cada uno de los parámetros.
+set.seed(100)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
+
+tune_grid <- expand.grid(nrounds=c(100,300,500), 
+                         max_depth = c(5, 10, 15),
+                         eta = c(0.05, 0.2),
+                         gamma = c(0.01, 1),
+                         colsample_bytree = c(1),
+                         subsample = c(1),
+                         min_child_weight = c(1))
+
+model_xgb_8 <- train(as.factor(Potability) ~., data = KNN_sd_sd_train, method = "xgbTree",
+                trControl=trctrl,
+                tuneGrid = tune_grid,
+                tuneLength = 10)
+
+stopCluster(cl)
+
+# Resultados de los modelos.
+plot(model_xgb_8)
+
+# Test y matriz de confusión
+test_predict <- predict(model_xgb_8, KNN_sd_sd_test)
+confusionMatrix(test_predict, as.factor(KNN_sd_sd_test$Potability))
+```
+
+En este caso, nos quedamos con:
+
+tune_grid <- expand.grid(nrounds=c(100), 
+                         max_depth = c(15),
+                         eta = c(0.05),
+                         gamma = c(1)
+
+```{r}
+set.seed(100)
+
+train.data = as.matrix(KNN_sd_sd_train[, -10])
+train.label = KNN_sd_sd_train[, 10]
+test.data = as.matrix(KNN_sd_sd_test[, -10])
+test.label = KNN_sd_sd_test[, 10]
+
+xgb.train = xgb.DMatrix(data=train.data,label=(train.label))
+xgb.test = xgb.DMatrix(data=test.data,label=(test.label))
+
+# Definición de los parámetros seleccionados
+num_class = length(unique(KNN_sd_sd_train$Potability))
+params = list(
+  booster="gbtree",
+  eta = 0.05,
+  max_depth = 15,
+  gamma = 1,
+  subsample = 1,
+  colsample_bytree = 1,
+  objective="multi:softprob",
+  eval_metric="mlogloss",
+  num_class=num_class
+)
+
+# Entrenamiento del modelo
+xgb.fit=xgb.train(
+  params=params,
+  data=xgb.train,
+  nrounds = 100
+)
+
+# Resultados
+xgb.fit
+
+# Predicción
+xgb.pred = predict(xgb.fit,test.data,reshape=T)
+xgb.pred = as.data.frame(xgb.pred)
+colnames(xgb.pred) = unique(KNN_sd_sd_train$Potability)
+
+# Use the predicted label with the highest probability
+xgb.pred$prediction = apply(xgb.pred,1,function(x) colnames(xgb.pred)[which.max(x)])
+xgb.pred$label = unique(KNN_sd_sd_train$Potability)[test.label+1]
+
+# Calculate the final accuracy
+result_xgb8 = sum(xgb.pred$prediction==xgb.pred$label)/nrow(xgb.pred)
+print(paste("Final Accuracy =",sprintf("%1.2f%%", 100*result_xgb8)))
+
+temp <- data.frame("Nombre"="model_xgb_8", "accuracy"=c(result_xgb8))
+accuracy_data2 <- rbind(accuracy_data2, temp)
+```
+```{r fig.width=10}
+ggplot(accuracy_data2, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity") + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+
+Como en el caso de randomForest, el mejor resultado lo hemos obtenido con el modelo 6, con una exactitud de 70.15%.
+
+### Regresión logística
+
+#### Modelo 1
+
+```{r}
+library(dplyr)
+
+train.data  <- mF_complete_Tuk_train
+test.data <- mF_complete_Tuk_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+accuracy_data_3<- data.frame("Nombre"="model_1_reg", "accuracy"=result)
+```
+
+
+#### Modelo 2
+
+```{r}
+library(dplyr)
+
+train.data  <- mF_complete_sd_train
+test.data <- mF_complete_sd_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_2_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+
+
+#### Modelo 3
+
+```{r}
+library(dplyr)
+
+train.data  <- mF_Tukey_Tuk_train
+test.data <- mF_Tukey_Tuk_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_3_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+
+#### Modelo 4
+
+```{r}
+library(dplyr)
+
+train.data  <- mF_sd_sd_train
+test.data <- mF_sd_sd_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_4_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+
+
+#### Modelo 5
+
+```{r}
+library(dplyr)
+
+train.data  <- KNN_complete_Tuk_train
+test.data <- KNN_complete_Tuk_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_5_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+
+#### Modelo 6
+
+```{r}
+library(dplyr)
+
+train.data  <- KNN_complete_sd_train
+test.data <- KNN_complete_sd_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_6_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+
+#### Modelo 7
+
+```{r}
+library(dplyr)
+
+train.data  <- KNN_Tukey_Tuk_train
+test.data <- KNN_Tukey_Tuk_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_7_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+
+#### Modelo 8
+
+```{r}
+library(dplyr)
+
+train.data  <- KNN_sd_sd_train
+test.data <- KNN_sd_sd_test
+
+# Creamos el modelo
+model <- glm( Potability ~., data = train.data, family = binomial)
+
+# Mostramos el resumen de los resultados del modelo
+summary(model)
+
+# Creamos las predicciones
+probabilities <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+
+# Observamos la exactitud del modelo
+result <- mean(predicted.classes == test.data$Potability)
+result
+```
+```{r}
+temp <- data.frame("Nombre"="model_8_reg", "accuracy"=c(result))
+accuracy_data_3 <- rbind(accuracy_data_3, temp)
+```
+```{r fig.width=10}
+ggplot(accuracy_data_3, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity") + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+
+En este caso, utilizando la regresión logística para la clasificación, el mejor resultado lo hemos obtenido con el modelo 1, con una exactitud del 65.25%.
+
+
+******
+# Representación de los resultados a partir de tablas y gráficas.
+******
+
+Podemos observar los resultados de los distintos modelos aplicados y sus resultados:
+```{r fig.width=10}
+ggplot(accuracy_data, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity")  + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+```{r fig.width=10}
+ggplot(accuracy_data2, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity")  + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+```{r fig.width=10}
+ggplot(accuracy_data_3, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity") + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+Y comparamos los mejores resultados de los tres modelos de clasificación:
+
+```{r}
+accuracy_data_final <- data.frame("Nombre"= c(accuracy_data[9,1], accuracy_data2[6,1], accuracy_data_3[1,1]),
+                                  "accuracy"= c(accuracy_data[9,2], accuracy_data2[6,2], accuracy_data_3[1,2]))
+
+ggplot(accuracy_data_final, aes(x=as.factor(Nombre), y=accuracy, fill=as.factor(Nombre))) + 
+  geom_bar(stat = "identity") + geom_text(aes(label=round(accuracy*100, digits = 2)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+
+
+
+Tanto con randomForest como con Xgboost, el modelo 6 (KNN_complete_sd) nos ofrece los mejores resultados (por encima del 72%), con diferencias mínimas entre el modelo de entrenamiento y test. En el caso de regresión logistica obtenemos resultados bastante peores, como era de esperar. 
+
+Hemos enfocado la práctica en el impacto de las distintas estrategias de preparación de los datos en la posterior aplicación de los modelos de predicción, podemos observar claramente en las gráficas la variación de los resultados en función de dichas estrategias.
+
+******
+# Conclusiones
+******
+
+En el caso estudiado, podemos sacar varias conclusiones:
+- En cuanto al tratamiento de outliers, hemos obtenido el mejor resultando excluyendo los valores que sobrepasan 3 desviaciones típicas
+- Respecto a los modelos de imputación, KNN y missForest nos han ofrecido los valores con menos RMSE respecto a los datos originales.
+- En cuanto a los algoritmos de clasificación, hemos obtenido los mejores resultados con randomForest, superando las soluciones propuestas hasta ahora en Kaggle, no es una diferencia muy significativa. El mejor resultado que podemos observar en Kaggle es del 68.5%, mientras que nosostros hemos logrado resultados superiores al 72%. Tras el análisis de la naturaleza de los datos creemos que es dificil conseguir resultados significativamente superiores. 
+
+******
+# Bibliografía
+******
+
+Dealing with Missing Data using R https://medium.com/coinmonks/dealing-with-missing-data-using-r-3ae428da2d17
+
+Flexible Imputation of Missing Data https://stefvanbuuren.name/fimd/
+
+Root-Mean-Square Error in R Programming https://www.geeksforgeeks.org/root-mean-square-error-in-r-programming/
+
+MissForest - missing data imputation using iterated random forests https://rpubs.com/lmorgan95/MissForest
+
+Hmisc https://www.rdocumentation.org/packages/Hmisc/versions/4.5-0
+
+Package ‘Hmisc’ https://cran.r-project.org/web/packages/Hmisc/Hmisc.pdf
+
+Extra - Missing Data Tools https://unc-libraries-data.github.io/R-Open-Labs/Extras/Missing/missing.html
+
+Package ‘mi’ https://cran.r-project.org/web/packages/mi/mi.pdf
+
+Package ‘xgboost’ https://cran.r-project.org/web/packages/xgboost/xgboost.pdf
+
+trainControl: Control parameters for train https://www.rdocumentation.org/packages/caret/versions/6.0-88/topics/trainControl
+
+expand.grid: Create a Data Frame from All Combinations of Factor Variables https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/expand.grid
+
+Simple R - xgboost - caret kernel https://www.kaggle.com/nagsdata/simple-r-xgboost-caret-kernel
+
+XGBoost Multinomial Classification Iris Example in R https://rpubs.com/dalekube/XGBoost-Iris-Classification-Example-in-R
+
+Tune Machine Learning Algorithms in R https://machinelearningmastery.com/tune-machine-learning-algorithms-in-r/
+
+Tuning xgboost in R: Part I https://insightr.wordpress.com/2018/05/17/tuning-xgboost-in-r-part-i/
+
+Tuning xgboost in R: Part II https://www.r-bloggers.com/2018/07/tuning-xgboost-in-r-part-ii/
+
+Logistic Regression Essentials in R http://www.sthda.com/english/articles/36-classification-methods-essentials/151-logistic-regression-essentials-in-r/
