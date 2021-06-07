@@ -2,7 +2,7 @@
 
 ## Descripción
 
-En este repositorio pueden encontrar un archivo del lenguaje de programación R que genera distintos modelos de clasificación a partir del dataset "Water Quality" de Kaggle (https://www.kaggle.com/adityakadiwal/water-potability). Hemos logrado un modelo de clasificación con una exactitud del 73% utilizando RandomForest. 
+En este repositorio pueden encontrar un archivo del lenguaje de programación R que genera distintos modelos de clasificación a partir del dataset "Water Quality" de Kaggle (https://www.kaggle.com/adityakadiwal/water-potability). Hemos logrado un modelo de clasificación con una exactitud del 72% utilizando RandomForest. 
 
 Esta práctica se ha realizado bajo el contexto de la asignatura _Tipología y ciclo de vida de los datos_, perteneciente al Máster en Ciencia de Datos de la Universitat Oberta de Catalunya.
 
