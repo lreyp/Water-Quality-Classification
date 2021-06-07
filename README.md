@@ -14,8 +14,6 @@ La actividad ha sido realizada por **Iván Maseda Zurdo** y **Lucas Rey Pitaluga
 
 **src/water_quality_classification.R**: este fichero contiene el código en lenguaje R para la carga del dataset original, la carga de librerías, genera los _datasets_ requeridos y los modelos de clasificación.
 
-**src/water_quality_classification.Rmd**: este fichero contiene el código en lenguaje Rmd para la carga del dataset original, la carga de librerías, genera los _datasets_ requeridos y los modelos de clasificación.
-
 ## Bibliografía
 
 1. Subirats, L., Calvo, M. (2018). Web Scraping. Editorial UOC.
