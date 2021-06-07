@@ -12,7 +12,9 @@ La actividad ha sido realizada por **Iván Maseda Zurdo** y **Lucas Rey Pitaluga
 
 ## Fichero del código fuente
 
-**src/water_quality_classification.Rmd**: este fichero contiene el código en formato Rmd para la carga del dataset original, la carga de librerías, genera los _datasets_ requeridos y los modelos de clasificación.
+**src/water_quality_classification.R**: este fichero contiene el código en lenguaje R para la carga del dataset original, la carga de librerías, genera los _datasets_ requeridos y los modelos de clasificación.
+
+**src/water_quality_classification.Rmd**: este fichero contiene el código en lenguaje Rmd para la carga del dataset original, la carga de librerías, genera los _datasets_ requeridos y los modelos de clasificación.
 
 ## Bibliografía
 
@@ -36,5 +38,3 @@ La actividad ha sido realizada por **Iván Maseda Zurdo** y **Lucas Rey Pitaluga
 18. Tuning xgboost in R: Part I https://insightr.wordpress.com/2018/05/17/tuning-xgboost-in-r-part-i/
 19. Tuning xgboost in R: Part II https://www.r-bloggers.com/2018/07/tuning-xgboost-in-r-part-ii/
 20. Logistic Regression Essentials in R http://www.sthda.com/english/articles/36-classification-methods-essentials/151-logistic-regression-essentials-in-r/
-
-
